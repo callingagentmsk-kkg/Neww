@@ -177,6 +177,109 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   applySiteSettings();
 
+  /* ---------- EDITABLE WEBSITE CONTENT (Admin Panel -> Website Content) ---------- */
+  function escHtml(v) {
+    return String(v === undefined || v === null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  // Only allow safe link schemes (blocks javascript: etc.)
+  function safeHref(u) {
+    u = String(u || '').trim();
+    if (!u) return '#';
+    if (/^(https?:|tel:|mailto:|#|\/|\.\/|\.\.\/|[a-z0-9_\-]+\.html)/i.test(u)) return u;
+    return '#';
+  }
+  function safeIcon(c) {
+    return /^[a-z0-9\- ]+$/i.test(c || '') ? c : 'fa-solid fa-link';
+  }
+  function renderSiteContent() {
+    const s = siteSettings;
+
+    // SEO / page title
+    if (s.seo_title) document.title = s.seo_title;
+    if (s.seo_description) {
+      const md = document.querySelector('meta[name="description"]');
+      if (md) md.setAttribute('content', s.seo_description);
+    }
+
+    // Navigation (desktop header + mobile drawer)
+    if (Array.isArray(s.nav_links) && s.nav_links.length) {
+      const mainNav = document.getElementById('mainNav');
+      const drawer = document.getElementById('mobileDrawer');
+      const ctaText = s.cta_text || 'Admission';
+      const ctaHref = safeHref(s.cta_link || 'tel:+916207434940');
+      if (mainNav) {
+        mainNav.innerHTML = s.nav_links.filter(n => n.header !== false).map((n, i) =>
+          `<a href="${escHtml(safeHref(n.href))}" class="nav-link ${i === 0 ? 'active' : ''}">${escHtml(n.label)}</a>`).join('') +
+          `<a href="${escHtml(ctaHref)}" class="nav-cta"><i class="fa-solid fa-phone"></i> ${escHtml(ctaText)}</a>`;
+      }
+      if (drawer) {
+        const social = drawer.querySelector('.mdrawer-social');
+        const socialHtml = social ? social.outerHTML : '';
+        drawer.innerHTML = s.nav_links.map(n =>
+          `<a href="${escHtml(safeHref(n.href))}" class="mdrawer-link"><i class="${escHtml(safeIcon(n.icon))}"></i> ${escHtml(n.label)}</a>`).join('') +
+          `<a href="${escHtml(ctaHref)}" class="mdrawer-cta"><i class="fa-solid fa-phone"></i> ${escHtml(ctaText)}${s.helpline_number && /^tel:/i.test(ctaHref) ? ': ' + escHtml(s.helpline_number.replace('+91','').trim()) : ''}</a>` + socialHtml;
+        drawer.querySelectorAll('.mdrawer-link, .mdrawer-cta').forEach(l => l.addEventListener('click', closeDrawer));
+      }
+    }
+
+    // Subjects strip
+    const strip = document.querySelector('.subjects-strip .section-container');
+    if (strip && Array.isArray(s.subject_cards) && s.subject_cards.length) {
+      strip.innerHTML = s.subject_cards.map((c, i) => `
+        <div class="subject-card" data-aos="flip-left" data-aos-delay="${i * 150}">
+          <div class="subject-icon-3d ${['physics','chemistry','maths'].includes(c.color) ? c.color : 'physics'}"><i class="${escHtml(safeIcon(c.icon))}"></i></div>
+          <h3>${escHtml(c.name)}</h3>
+          <p>${escHtml(c.text)}</p>
+        </div>`).join('');
+    }
+
+    // Why cards
+    const whyGrid = document.querySelector('.why-grid');
+    if (whyGrid && Array.isArray(s.why_cards) && s.why_cards.length) {
+      whyGrid.innerHTML = s.why_cards.map((c, i) => `
+        <div class="why-card" data-aos="fade-up" data-aos-delay="${i * 100}">
+          <div class="why-icon"><i class="${escHtml(safeIcon(c.icon))}"></i></div>
+          <h3>${escHtml(c.title)}</h3>
+          <p>${escHtml(c.text)}</p>
+        </div>`).join('');
+    }
+
+    // Footer text + brand
+    const fa = document.querySelector('.footer-about');
+    if (fa && s.footer_about) fa.textContent = s.footer_about;
+    if (s.site_title) {
+      const fh = document.querySelector('.footer-logo h3');
+      if (fh) fh.textContent = s.site_title;
+    }
+    if (s.site_tagline) {
+      const fp = document.querySelector('.footer-logo p');
+      if (fp) fp.textContent = s.site_tagline;
+      const bs = document.querySelector('.brand-sub');
+      if (bs) bs.textContent = s.site_tagline;
+    }
+
+    // Footer "Links" column: standard links + extra admin-added links
+    const linkCol = document.querySelector('.footer-col:nth-child(2) ul');
+    if (linkCol && Array.isArray(s.footer_extra_links) && s.footer_extra_links.length) {
+      linkCol.innerHTML += s.footer_extra_links.map(l =>
+        `<li><a href="${escHtml(safeHref(l.href))}" ${/^https?:/i.test(l.href || '') ? 'target="_blank" rel="noopener"' : ''}>${escHtml(l.label)}</a></li>`).join('');
+    }
+
+    // Extra social icons (Telegram, Twitter, LinkedIn ... any FontAwesome brand)
+    if (Array.isArray(s.extra_socials) && s.extra_socials.length) {
+      const mk = (cls) => s.extra_socials.map(x =>
+        `<a href="${escHtml(safeHref(x.url))}" target="_blank" rel="noopener" aria-label="${escHtml(x.label || '')}" class="${cls}"${cls === 'social-btn' ? ' style="background:#4C3CE3"' : ''}><i class="${escHtml(safeIcon(x.icon))}"></i></a>`).join('');
+      const cs = document.getElementById('contactSocials');
+      if (cs) cs.insertAdjacentHTML('beforeend', mk('social-btn'));
+      const fs = document.getElementById('footerSocials');
+      if (fs) fs.insertAdjacentHTML('beforeend', mk(''));
+      const ds = document.querySelector('.mdrawer-social');
+      if (ds) ds.insertAdjacentHTML('beforeend', mk(''));
+    }
+  }
+  renderSiteContent();
+
   /* ---------- COUNTER ANIMATION (declared early; used by renderHero) ---------- */
   let counterObserver;
   function setupCounters() {
@@ -231,11 +334,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             ${slide.btn1_text ? `<a href="${slide.btn1_link || '#'}" class="btn btn-primary"><i class="fa-solid fa-play"></i> ${slide.btn1_text}</a>` : ''}
             ${slide.btn2_text ? `<a href="${slide.btn2_link || '#'}" class="btn btn-outline"><i class="fa-solid fa-chart-line"></i> ${slide.btn2_text}</a>` : ''}
           </div>
-          ${i === 0 ? `<div class="hero-stats">
-            <div class="stat"><span class="num" data-count="4">0</span><small>Classes</small></div>
-            <div class="stat"><span class="num" data-count="3">0</span><small>Subjects</small></div>
-            <div class="stat"><span class="num" data-count="36">0</span><small>Video Lectures</small></div>
-            <div class="stat"><span class="num" data-count="500">0</span>+<small>Students</small></div>
+          ${i === 0 && Array.isArray(siteSettings.hero_stats) && siteSettings.hero_stats.length ? `<div class="hero-stats">
+            ${siteSettings.hero_stats.map(st => `<div class="stat"><span class="num" data-count="${parseInt(st.num, 10) || 0}">0</span>${st.suffix || ''}<small>${st.label || ''}</small></div>`).join('')}
           </div>` : ''}
         </div>
         <div class="hero-visual">

@@ -28,7 +28,43 @@ const SITE_SETTINGS_DEFAULT = {
   social_instagram: 'https://instagram.com',
   terms_content: 'Terms & Conditions content — edit this from the Admin Panel.',
   policy_content: 'Privacy Policy content — edit this from the Admin Panel.',
-  result_validity_days: 3
+  result_validity_days: 3,
+
+  /* ---- Editable website content (Admin Panel -> Website Content) ---- */
+  seo_title: 'CWA SCIENCE CLASSES | Concept with Abhishek - Best Coaching for Class 9-12 PCM (Bihar Board)',
+  seo_description: 'CWA SCIENCE CLASSES - Concept with Abhishek. Class 9 to 12 Physics, Chemistry, Maths (Bihar Board) taught by Abhishek Garg Sir. Watch batch videos, download PDF notes, check weekly test results online.',
+  cta_text: 'Admission',
+  cta_link: 'tel:+916207434940',
+  nav_links: [
+    { label: 'Home', href: '#home', icon: 'fa-solid fa-house', header: true },
+    { label: 'About Sir', href: '#about', icon: 'fa-solid fa-chalkboard-user', header: true },
+    { label: 'Batches', href: '#batches', icon: 'fa-solid fa-layer-group', header: true },
+    { label: 'Test Result', href: '#result', icon: 'fa-solid fa-chart-simple', header: true },
+    { label: 'Why CWA', href: '#gallery', icon: 'fa-solid fa-star', header: false },
+    { label: 'Contact', href: '#contact', icon: 'fa-solid fa-location-dot', header: true }
+  ],
+  hero_stats: [
+    { num: 4, label: 'Classes', suffix: '' },
+    { num: 3, label: 'Subjects', suffix: '' },
+    { num: 36, label: 'Video Lectures', suffix: '' },
+    { num: 500, label: 'Students', suffix: '+' }
+  ],
+  subject_cards: [
+    { name: 'Physics', text: 'Concepts + Numericals + Diagrams', icon: 'fa-solid fa-atom', color: 'physics' },
+    { name: 'Chemistry', text: 'Reactions + Equations + Formulas', icon: 'fa-solid fa-flask', color: 'chemistry' },
+    { name: 'Maths', text: 'Theorems + Practice + Tricks', icon: 'fa-solid fa-square-root-variable', color: 'maths' }
+  ],
+  why_cards: [
+    { icon: 'fa-solid fa-chalkboard-user', title: 'Single Expert Faculty', text: 'Physics, Chemistry, Maths — teeno Abhishek Garg Sir hi padhate hain, isliye teaching mein consistency milti hai.' },
+    { icon: 'fa-solid fa-mobile-screen', title: 'Mobile Friendly Platform', text: 'Video aur PDF dono mobile par easily chalte hain — laptop ki zaroorat nahi.' },
+    { icon: 'fa-solid fa-file-pdf', title: 'Free PDF Notes', text: 'Har chapter ke sath detailed PDF notes free milte hain — revision aasan.' },
+    { icon: 'fa-solid fa-chart-line', title: 'Weekly Test Analysis', text: 'Har hafte test hota hai aur result online turant dekh sakte hain.' },
+    { icon: 'fa-solid fa-book-open-reader', title: 'Bihar Board Focused', text: 'Poora syllabus Bihar Board pattern ke hisaab se design kiya gaya hai.' },
+    { icon: 'fa-solid fa-hand-holding-dollar', title: 'Affordable Fees', text: 'Quality education kam fees mein — sabhi students ke liye accessible.' }
+  ],
+  footer_about: 'Bihar Board Class 9 to 12 ke liye Physics, Chemistry aur Maths ki best online coaching. Ek hi expert faculty — Abhishek Garg Sir.',
+  footer_extra_links: [],
+  extra_socials: []
 };
 
 const HERO_SLIDES_DEFAULT = [
