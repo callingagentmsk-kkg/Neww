@@ -243,3 +243,27 @@ table.a-table tr:last-child td{ border-bottom:none; }
   .a-sidebar.open{ left:0; }
   .a-hamburger{ display:block; }
 }
+
+
+/* ---- Upload field ---- */
+.a-upload-row{ display:flex; gap:8px; align-items:center; }
+.a-upload-row input[name]{ flex:1; min-width:0; }
+.a-upload-btn{ cursor:pointer; margin:0 !important; flex-shrink:0; }
+.a-upload-preview{ display:block; margin-top:8px; max-height:90px; max-width:100%; border-radius:10px; border:1px solid var(--a-border); background:#f4f5fb; }
+.a-upload-status{ font-size:.78rem; margin-top:6px; color:var(--a-gray); }
+.a-upload-status.ok{ color:#0e9f6e; font-weight:600; }
+.a-upload-status.err{ color:#d63333; font-weight:600; }
+
+/* ---- Repeater rows (Website Content panel) ---- */
+.a-rep-row{ display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; padding:12px; margin-bottom:10px; background:#f8f8fd; border:1px solid var(--a-border); border-radius:12px; }
+.a-rep-cell{ flex:1 1 150px; min-width:0; }
+.a-rep-cell.wide{ flex:2 1 260px; }
+.a-rep-cell span{ display:block; font-size:.72rem; font-weight:700; color:var(--a-gray); margin-bottom:4px; text-transform:uppercase; }
+.a-rep-cell input, .a-rep-cell select, .a-rep-cell textarea{ width:100%; padding:9px 10px; border:2px solid var(--a-border); border-radius:8px; font-size:.88rem; font-family:inherit; }
+.a-rep-check{ display:flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; padding-bottom:10px; }
+.a-rep-del{ margin-bottom:2px; }
+
+/* repeater image cell */
+.a-rep-img{ flex:1 1 220px; }
+.a-rep-img .a-upload-row input[data-k]{ flex:1; min-width:0; }
+.a-rep-img .a-upload-preview{ max-height:70px; }

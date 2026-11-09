@@ -125,6 +125,7 @@ async function loadPanel(name) {
   if (name === 'about') await renderAboutPanel();
   if (name === 'batches') await renderBatchesPanel();
   if (name === 'settings') await renderSettingsPanel();
+  if (name === 'content') await renderContentPanel();
   if (name === 'terms') await renderTermsPanel();
   if (name === 'students') await renderStudentsPanel();
   if (name === 'results') await renderResultsPanel();
@@ -138,6 +139,7 @@ const PANEL_TITLES = {
   about: 'About / Mentor Section',
   batches: 'Batches Management',
   settings: 'Site Settings (Footer/Contact)',
+  content: 'Website Content (Links, Cards, Stats)',
   terms: 'Terms & Privacy Policy',
   students: 'Student Data',
   results: 'Student Results',
@@ -234,7 +236,7 @@ function openHeroForm(slide) {
     <form id="aHeroForm">
       <div class="a-grid-2">
         <div class="a-field"><label>Eyebrow Text</label><input name="eyebrow" value="${esc(s.eyebrow)}"></div>
-        <div class="a-field"><label>Image URL</label><input name="image_url" value="${esc(s.image_url)}"></div>
+        ${fileField("image_url", s.image_url, "Slide Image (upload ya URL)", "hero")}
         <div class="a-field"><label>Line 1</label><input name="line1" value="${esc(s.line1)}"></div>
         <div class="a-field"><label>Line 2</label><input name="line2" value="${esc(s.line2)}"></div>
         <div class="a-field"><label>Highlight Word</label><input name="highlight" value="${esc(s.highlight)}"></div>
@@ -330,7 +332,7 @@ async function renderAboutPanel() {
           <div class="a-field"><label>Teacher Name</label><input name="about_teacher_name" value="${esc(s.about_teacher_name)}"></div>
           <div class="a-field"><label>Role / Designation</label><input name="about_role" value="${esc(s.about_role)}"></div>
         </div>
-        <div class="a-field"><label>Photo URL</label><input name="about_image_url" value="${esc(s.about_image_url)}"></div>
+        ${fileField("about_image_url", s.about_image_url, "Teacher Photo (upload ya URL)", "about")}
         <div class="a-field"><label>About Text (HTML allowed)</label><textarea name="about_text" rows="5">${esc(s.about_text)}</textarea></div>
         <button class="a-btn a-btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
       </form>
@@ -352,7 +354,7 @@ async function renderSettingsPanel() {
     <div class="a-card">
       <form id="aSettingsForm">
         <div class="a-grid-2">
-          <div class="a-field"><label>Site Logo URL</label><input name="logo_url" value="${esc(s.logo_url)}"></div>
+          ${fileField("logo_url", s.logo_url, "Site Logo (upload ya URL)", "logo")}
           <div class="a-field"><label>Site Title</label><input name="site_title" value="${esc(s.site_title)}"></div>
           <div class="a-field"><label>Helpline Number</label><input name="helpline_number" value="${esc(s.helpline_number)}"></div>
           <div class="a-field"><label>WhatsApp Link</label><input name="whatsapp_link" value="${esc(s.whatsapp_link)}"></div>
@@ -384,6 +386,188 @@ async function renderSettingsPanel() {
   });
 }
 
+
+/* ---------------- WEBSITE CONTENT (links, stats, cards, socials) ---------------- */
+const CONTENT_SECTIONS = [
+  { key: 'nav_links', title: 'Menu / Navigation Links', icon: 'fa-bars',
+    help: 'Header aur mobile menu ke links. Link: #about (section), https://... (bahar ka), tel:+91..., mailto:...',
+    fields: [
+      { k: 'label', l: 'Naam', ph: 'About Sir' }, { k: 'href', l: 'Link', ph: '#about ya https://...' },
+      { k: 'icon', l: 'Icon', ph: 'fa-solid fa-house' }, { k: 'header', l: 'Header me dikhao', type: 'check' }
+    ], blank: { label: '', href: '#', icon: 'fa-solid fa-link', header: true } },
+  { key: 'hero_stats', title: 'Hero Stats (Classes / Students ...)', icon: 'fa-chart-simple',
+    help: 'Homepage ke pehle slide ke neeche ginti wale numbers.',
+    fields: [
+      { k: 'num', l: 'Number', type: 'number', ph: '500' }, { k: 'suffix', l: 'Suffix', ph: '+' }, { k: 'label', l: 'Label', ph: 'Students' }
+    ], blank: { num: 0, suffix: '', label: '' } },
+  { key: 'subject_cards', title: 'Subject Cards (Physics / Chemistry / Maths)', icon: 'fa-flask',
+    help: 'Hero ke neeche 3D subject cards.',
+    fields: [
+      { k: 'name', l: 'Subject', ph: 'Physics' }, { k: 'text', l: 'Chhota text', ph: 'Concepts + Numericals' },
+      { k: 'icon', l: 'Icon', ph: 'fa-solid fa-atom' },
+      { k: 'color', l: 'Rang', type: 'select', options: ['physics', 'chemistry', 'maths'] }
+    ], blank: { name: '', text: '', icon: 'fa-solid fa-book', color: 'physics' } },
+  { key: 'why_cards', title: 'Hamari Khasiyat (Why Choose Us)', icon: 'fa-star',
+    help: 'Khasiyat wale cards — kitne bhi add / delete karein.',
+    fields: [
+      { k: 'icon', l: 'Icon', ph: 'fa-solid fa-star' }, { k: 'title', l: 'Title', ph: 'Free PDF Notes' },
+      { k: 'text', l: 'Description', type: 'textarea', ph: 'Short description' }
+    ], blank: { icon: 'fa-solid fa-star', title: '', text: '' } },
+  { key: 'footer_extra_links', title: 'Footer Extra Links', icon: 'fa-link',
+    help: 'Footer ke "Links" column me extra links (jaise Telegram channel, Demo class form, Google form).',
+    fields: [{ k: 'label', l: 'Naam', ph: 'Join Telegram' }, { k: 'href', l: 'Link', ph: 'https://t.me/...' }],
+    blank: { label: '', href: '' } },
+  { key: 'extra_socials', title: 'Extra Social Icons', icon: 'fa-share-nodes',
+    help: 'YouTube/Facebook/Instagram ke alawa aur icons (Telegram, Twitter, LinkedIn...). Icon e.g. fa-brands fa-telegram',
+    fields: [
+      { k: 'label', l: 'Naam', ph: 'Telegram' }, { k: 'icon', l: 'Icon', ph: 'fa-brands fa-telegram' }, { k: 'url', l: 'Link', ph: 'https://t.me/...' }
+    ], blank: { label: '', icon: 'fa-brands fa-telegram', url: '' } },
+
+  /* ---------- Toppers-Wisdom style sections ---------- */
+  { key: 'hero_chips', title: 'Hero - Floating Chips (photo ke aas-paas)', icon: 'fa-tags',
+    help: 'Hero photo ke around 4 chhote white cards (max 4 dikhte hain).',
+    fields: [{ k: 'title', l: 'Title', ph: 'Class 9 - 12' }, { k: 'sub', l: 'Chhota text', ph: 'Bihar Board PCM' }],
+    blank: { title: '', sub: '' } },
+  { key: 'achievers', title: 'Toppers Ticker (ghumne wali patti)', icon: 'fa-ranking-star',
+    help: 'Hero ke neeche ghumne wale student pills. Photo optional hai - na do to naam ka pehla akshar dikhega.',
+    fields: [
+      { k: 'name', l: 'Student Naam', ph: 'Rahul Kumar' }, { k: 'rank', l: 'Rank / Marks', ph: 'Class 10 - 96%' },
+      { k: 'image_url', l: 'Photo', type: 'image', folder: 'toppers' }
+    ], blank: { name: '', rank: '', image_url: '' } },
+  { key: 'promo_banners', title: 'Promo Banners (poster image)', icon: 'fa-rectangle-ad',
+    help: 'Badi poster image (jaise Toppers Wisdom ka Daily Editorial banner). Image add karte hi neeche wala text banner hat jata hai. Link optional.',
+    fields: [
+      { k: 'image_url', l: 'Banner Image', type: 'image', folder: 'banners', wide: true },
+      { k: 'link', l: 'Click Link (optional)', ph: 'https://... ya tel:+91...' }, { k: 'title', l: 'Alt naam', ph: 'Admission Open' }
+    ], blank: { image_url: '', link: '', title: '' } },
+  { key: 'proud_moments', title: 'Proud Moments - Topper Photos (grid)', icon: 'fa-trophy',
+    help: 'Sir ke saath topper students ki photo cards. Square photo best rehti hai.',
+    fields: [
+      { k: 'image_url', l: 'Photo', type: 'image', folder: 'toppers' },
+      { k: 'name', l: 'Naam', ph: 'Rahul Kumar' }, { k: 'rank', l: 'Gold badge', ph: 'Rank 1 / 96%' }, { k: 'sub', l: 'Neeche text', ph: 'Class 10 | Bihar Board' }
+    ], blank: { image_url: '', name: '', rank: '', sub: '' } },
+  { key: 'about_cards', title: 'About - Vision / Mission Cards (4 photo cards)', icon: 'fa-bullseye',
+    help: 'About section ke right side ke cards. Background photo optional.',
+    fields: [
+      { k: 'image_url', l: 'Background Photo', type: 'image', folder: 'about' },
+      { k: 'tag', l: 'Red tag', ph: 'OUR VISION' }, { k: 'title', l: 'Title', ph: 'Best teacher for every student' },
+      { k: 'text', l: 'Text', type: 'textarea', ph: 'Short description' }
+    ], blank: { image_url: '', tag: '', title: '', text: '' } },
+  { key: 'join_points', title: 'Join Section - Tick Points', icon: 'fa-circle-check',
+    help: 'Join / Download section ke tick wale points.',
+    fields: [{ k: 'text', l: 'Point', ph: 'Free batches se shuruaat karein' }], blank: { text: '' } },
+  { key: 'join_images', title: 'Join Section - Image Slider', icon: 'fa-images',
+    help: 'Right side me ghumne wali images (poster / screenshot). Kitni bhi add karein.',
+    fields: [{ k: 'image_url', l: 'Image', type: 'image', folder: 'banners', wide: true }], blank: { image_url: '' } }
+];
+
+function repRowHtml(sec, item) {
+  return `<div class="a-rep-row">${sec.fields.map(f => {
+    const v = item[f.k];
+    if (f.type === 'check') return `<label class="a-rep-check"><input type="checkbox" data-k="${f.k}" ${v !== false ? 'checked' : ''}> ${f.l}</label>`;
+    if (f.type === 'select') return `<div class="a-rep-cell"><span>${f.l}</span><select data-k="${f.k}">${f.options.map(o => `<option ${v === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    if (f.type === 'image') return `<div class="a-rep-cell ${f.wide ? 'wide' : ''} a-rep-img" data-folder="${f.folder || 'misc'}"><span>${f.l}</span>
+      <div class="a-upload-row"><input data-k="${f.k}" value="${esc(v)}" placeholder="https://... ya Upload">
+        <label class="a-btn a-btn-sm a-btn-outline a-upload-btn"><i class="fa-solid fa-upload"></i><input type="file" accept="image/*" hidden data-rep-upload="1"></label></div>
+      <img class="a-upload-preview" src="${esc(v)}" style="${v ? '' : 'display:none'}" onerror="this.style.display='none'"><div class="a-upload-status"></div></div>`;
+    if (f.type === 'textarea') return `<div class="a-rep-cell wide"><span>${f.l}</span><textarea data-k="${f.k}" rows="2" placeholder="${esc(f.ph || '')}">${(v ?? '').toString().replace(/</g, '&lt;')}</textarea></div>`;
+    return `<div class="a-rep-cell"><span>${f.l}</span><input data-k="${f.k}" type="${f.type || 'text'}" value="${esc(v)}" placeholder="${esc(f.ph || '')}"></div>`;
+  }).join('')}<button type="button" class="a-btn a-btn-sm a-btn-danger a-rep-del" title="Delete"><i class="fa-solid fa-trash"></i></button></div>`;
+}
+function collectRepeater(sec) {
+  const box = document.getElementById('rep-' + sec.key);
+  return Array.from(box.querySelectorAll('.a-rep-row')).map(row => {
+    const o = {};
+    sec.fields.forEach(f => {
+      const el = row.querySelector(`[data-k="${f.k}"]`);
+      if (f.type === 'check') o[f.k] = el.checked;
+      else if (f.type === 'number') o[f.k] = Number(el.value) || 0;
+      else o[f.k] = el.value.trim();
+    });
+    return o;
+  }).filter(o => sec.fields.some(f => f.type !== 'check' && f.type !== 'select' && f.type !== 'number' && o[f.k]));
+}
+
+async function renderContentPanel() {
+  const el = document.getElementById('panel-content');
+  const st = await AdminDB.getSettings();
+  const D = (typeof SITE_SETTINGS_DEFAULT !== 'undefined') ? SITE_SETTINGS_DEFAULT : {};
+  const val = (k) => (Array.isArray(st[k]) ? st[k] : (Array.isArray(D[k]) ? D[k] : []));
+  el.innerHTML = `
+    <div class="a-panel-head"><div><h3>Website Content</h3><p>Website ke links, menu, numbers, cards, social icons — sab yahin se badlein. Save karte hi live site par dikhega.</p></div>
+      <button class="a-btn a-btn-primary" id="aContentSaveTop"><i class="fa-solid fa-floppy-disk"></i> Save All</button></div>
+
+    <div class="a-card"><h4><i class="fa-solid fa-globe"></i> Brand, SEO &amp; Header Button</h4>
+      <div class="a-grid-2">
+        <div class="a-field"><label>Site Title (brand naam)</label><input id="c_site_title" value="${esc(st.site_title ?? D.site_title)}"></div>
+        <div class="a-field"><label>Tagline (brand ke neeche)</label><input id="c_site_tagline" value="${esc(st.site_tagline ?? D.site_tagline)}"></div>
+        <div class="a-field"><label>Header Button Text</label><input id="c_cta_text" value="${esc(st.cta_text ?? D.cta_text)}"></div>
+        <div class="a-field"><label>Header Button Link</label><input id="c_cta_link" value="${esc(st.cta_link ?? D.cta_link)}" placeholder="tel:+91... ya https://..."></div>
+      </div>
+      <div class="a-field"><label>Browser / Google Title (SEO)</label><input id="c_seo_title" value="${esc(st.seo_title ?? D.seo_title)}"></div>
+      <div class="a-field"><label>Google Description (SEO)</label><textarea id="c_seo_description" rows="2">${(st.seo_description ?? D.seo_description ?? '').replace(/</g, '&lt;')}</textarea></div>
+      <div class="a-field"><label>Footer About Text</label><textarea id="c_footer_about" rows="2">${(st.footer_about ?? D.footer_about ?? '').replace(/</g, '&lt;')}</textarea></div>
+    </div>
+
+    <div class="a-card"><h4><i class="fa-solid fa-palette"></i> Design Colours &amp; Hero Background</h4>
+      <p style="color:var(--a-gray);font-size:.82rem;margin:-6px 0 12px;">Poori website ke rang yahin se badlein. Save ke baad live site refresh karein.</p>
+      <div class="a-grid-3">
+        <div class="a-field"><label>Header / Navbar Rang</label><input type="color" id="c_theme_nav" value="${esc(st.theme_nav ?? D.theme_nav)}" style="height:46px;padding:4px;"></div>
+        <div class="a-field"><label>Button / Highlight (Gold) Rang</label><input type="color" id="c_theme_accent" value="${esc(st.theme_accent ?? D.theme_accent)}" style="height:46px;padding:4px;"></div>
+        <div class="a-field"><label>Primary (links / tags) Rang</label><input type="color" id="c_theme_primary" value="${esc(st.theme_primary ?? D.theme_primary)}" style="height:46px;padding:4px;"></div>
+      </div>
+      <div class="a-file-field" data-folder="hero">
+        ${fileField('hero_bg_url', st.hero_bg_url ?? D.hero_bg_url, 'Hero Background Photo (optional - halka fade hokar peeche dikhega)', 'hero').replace('class="a-field a-file-field"', 'class="a-field a-file-field"')}
+      </div>
+    </div>
+
+    <div class="a-card"><h4><i class="fa-solid fa-font"></i> Section Headings &amp; Texts</h4>
+      <p style="color:var(--a-gray);font-size:.82rem;margin:-6px 0 12px;">Website ke headings, buttons aur chhote texts.</p>
+      <div class="a-grid-2">
+        ${(typeof SITE_TEXT_FIELDS !== 'undefined' ? SITE_TEXT_FIELDS : []).map(f => `<div class="a-field"><label>${f.l}</label><input data-text-key="${f.k}" value="${esc(st[f.k] ?? D[f.k])}"></div>`).join('')}
+      </div>
+    </div>
+
+    ${CONTENT_SECTIONS.map(sec => `
+      <div class="a-card"><h4><i class="fa-solid ${sec.icon}"></i> ${sec.title}</h4>
+        <p style="color:var(--a-gray);font-size:.82rem;margin:-6px 0 12px;">${sec.help}</p>
+        <div id="rep-${sec.key}">${val(sec.key).map(it => repRowHtml(sec, it)).join('')}</div>
+        <button type="button" class="a-btn a-btn-sm a-btn-outline" data-add="${sec.key}"><i class="fa-solid fa-plus"></i> Add</button>
+      </div>`).join('')}
+
+    <button class="a-btn a-btn-primary" id="aContentSave"><i class="fa-solid fa-floppy-disk"></i> Save All Changes</button>
+  `;
+  el.querySelectorAll('[data-add]').forEach(btn => btn.addEventListener('click', () => {
+    const sec = CONTENT_SECTIONS.find(x => x.key === btn.getAttribute('data-add'));
+    document.getElementById('rep-' + sec.key).insertAdjacentHTML('beforeend', repRowHtml(sec, sec.blank));
+  }));
+  el.addEventListener('click', (e) => {
+    const d = e.target.closest('.a-rep-del');
+    if (d) d.closest('.a-rep-row').remove();
+  });
+  const save = async () => {
+    const data = {
+      site_title: document.getElementById('c_site_title').value.trim(),
+      site_tagline: document.getElementById('c_site_tagline').value.trim(),
+      cta_text: document.getElementById('c_cta_text').value.trim(),
+      cta_link: document.getElementById('c_cta_link').value.trim(),
+      seo_title: document.getElementById('c_seo_title').value.trim(),
+      seo_description: document.getElementById('c_seo_description').value.trim(),
+      footer_about: document.getElementById('c_footer_about').value.trim(),
+      theme_nav: document.getElementById('c_theme_nav').value,
+      theme_accent: document.getElementById('c_theme_accent').value,
+      theme_primary: document.getElementById('c_theme_primary').value,
+      hero_bg_url: (el.querySelector('input[name="hero_bg_url"]') || {}).value || ''
+    };
+    el.querySelectorAll('[data-text-key]').forEach(inp => { data[inp.getAttribute('data-text-key')] = inp.value.trim(); });
+    CONTENT_SECTIONS.forEach(sec => { data[sec.key] = collectRepeater(sec); });
+    await AdminDB.saveSettings(data);
+    toast('Website content save ho gaya — live site refresh karke dekhein', 'ok');
+  };
+  document.getElementById('aContentSave').onclick = save;
+  document.getElementById('aContentSaveTop').onclick = save;
+}
+
 /* ---------------- TERMS & POLICY ---------------- */
 async function renderTermsPanel() {
   const el = document.getElementById('panel-terms');
@@ -410,11 +594,13 @@ async function renderLoginSettingsPanel() {
   const el = document.getElementById('panel-login-settings');
   const username = await AdminDB.getUsername();
   el.innerHTML = `
-    <div class="a-panel-head"><div><h3>Change Login</h3><p>Admin username / password change karein.</p></div></div>
+    <div class="a-panel-head"><div><h3>Change Login</h3><p>Admin username / password change karein. Pehli baar login ke baad password zaroor badal dein.</p></div></div>
     <div class="a-card" style="max-width:460px;">
-      <form id="aCredForm">
-        <div class="a-field"><label>Username</label><input name="username" value="${esc(username)}"></div>
-        <div class="a-field"><label>New Password (khali chodein agar change nahi karna)</label><input type="password" name="password" placeholder="••••••••"></div>
+      <form id="aCredForm" autocomplete="off">
+        <div class="a-field"><label>Current Password *</label><input type="password" name="current" required autocomplete="current-password"></div>
+        <div class="a-field"><label>Username</label><input name="username" value="${esc(username)}" required></div>
+        <div class="a-field"><label>New Password (khali chodein agar change nahi karna)</label><input type="password" name="password" placeholder="kam se kam 8 characters" autocomplete="new-password"></div>
+        <div class="a-field"><label>New Password dobara likhein</label><input type="password" name="password2" autocomplete="new-password"></div>
         <button class="a-btn a-btn-primary"><i class="fa-solid fa-floppy-disk"></i> Update Login</button>
       </form>
     </div>
@@ -422,10 +608,14 @@ async function renderLoginSettingsPanel() {
   document.getElementById('aCredForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = formToObj(e.target);
-    const res = await AdminDB.changeCredentials(data.username, data.password);
+    if (data.password && data.password.length < 8) return toast('Naya password kam se kam 8 characters ka rakhein', 'err');
+    if (data.password !== data.password2) return toast('Dono new password match nahi kar rahe', 'err');
+    const res = await AdminDB.changeCredentials(data.username.trim(), data.password, data.current);
     if (res.ok) {
       toast('Login details update ho gaye', 'ok');
       document.getElementById('aUserName').textContent = data.username;
+      e.target.reset();
+      e.target.username.value = data.username;
     } else {
       toast(res.error || 'Update fail hua', 'err');
     }
@@ -590,7 +780,7 @@ function openBatchForm(batch) {
         <div class="a-field"><label>Subtitle</label><input name="subtitle" value="${esc(b.subtitle)}"></div>
         <div class="a-field"><label>Color (hex)</label><input name="color" value="${esc(b.color || '#4C3CE3')}"></div>
         <div class="a-field"><label>FontAwesome Icon (e.g. fa-seedling)</label><input name="icon" value="${esc(b.icon)}"></div>
-        <div class="a-field"><label>Image URL</label><input name="image_url" value="${esc(b.image_url)}"></div>
+        ${fileField("image_url", b.image_url, "Batch Image (upload ya URL)", "batch")}
         <div class="a-field"><label>Offer Text</label><input name="offer_text" value="${esc(b.offer_text)}"></div>
         <div class="a-field"><label>Price (₹)</label><input name="price" value="${esc(b.price)}"></div>
         <div class="a-field"><label>Payment Link (Cashfree)</label><input name="payment_link" value="${esc(b.payment_link)}"></div>
@@ -676,7 +866,7 @@ function openResourceForm(batchId, subjectId, chapterId, resource) {
     <h3>${resource ? 'PDF Edit Karein' : 'Naya PDF Resource'} <i class="fa-solid fa-xmark close" onclick="closeModal()"></i></h3>
     <form id="aResourceForm">
       <div class="a-field"><label>Resource Type (jaise "Text Notes (PDF)")</label><input name="resource_type" value="${esc(r.resource_type)}" required></div>
-      <div class="a-field"><label>PDF URL</label><input name="url" value="${esc(r.url)}" required></div>
+      ${fileField("url", r.url, "PDF (upload ya URL)", "pdf", "application/pdf", true)}
       <div class="a-field"><label>Description</label><input name="description" value="${esc(r.description)}"></div>
       <div class="a-modal-actions">
         <button type="button" class="a-btn a-btn-outline" onclick="closeModal()">Cancel</button>
@@ -1021,3 +1211,58 @@ function formToObj(form) {
 function emptyState(icon, msg) {
   return `<div class="a-empty"><i class="fa-solid ${icon}"></i>${msg}</div>`;
 }
+
+/* ---------------- UPLOAD-CAPABLE FIELD ---------------- */
+function fileField(name, value, label, folder, accept, required) {
+  const isImg = !accept || accept.indexOf('image') >= 0;
+  return `<div class="a-field a-file-field" data-folder="${folder || 'misc'}">
+    <label>${label}</label>
+    <div class="a-upload-row">
+      <input name="${name}" value="${esc(value)}" placeholder="https://... ya Upload dabayein" ${required ? 'required' : ''}>
+      <label class="a-btn a-btn-sm a-btn-outline a-upload-btn"><i class="fa-solid fa-upload"></i> Upload
+        <input type="file" accept="${accept || 'image/*'}" hidden data-upload="1">
+      </label>
+    </div>
+    ${isImg ? `<img class="a-upload-preview" src="${esc(value)}" style="${value ? '' : 'display:none'}" onerror="this.style.display='none'">` : ''}
+    <div class="a-upload-status"></div>
+  </div>`;
+}
+document.addEventListener('change', async (e) => {
+  const inp = e.target;
+  if (!(inp instanceof HTMLInputElement) || inp.getAttribute('data-upload') !== '1') return;
+  const box = inp.closest('.a-file-field');
+  const file = inp.files && inp.files[0];
+  if (!box || !file) return;
+  const status = box.querySelector('.a-upload-status');
+  status.className = 'a-upload-status';
+  status.textContent = 'Upload ho raha hai...';
+  const res = await AdminDB.uploadFile(file, box.getAttribute('data-folder'));
+  inp.value = '';
+  if (!res.ok) { status.className = 'a-upload-status err'; status.textContent = res.error; return; }
+  box.querySelector('input[name]').value = res.url;
+  const pv = box.querySelector('.a-upload-preview');
+  if (pv) { pv.src = res.url; pv.style.display = 'block'; }
+  status.className = 'a-upload-status ok';
+  status.textContent = 'Upload ho gaya. Ab neeche Save dabayein.';
+});
+
+
+/* Upload button inside Website Content repeater rows (image cells) */
+document.addEventListener('change', async (e) => {
+  const inp = e.target;
+  if (!(inp instanceof HTMLInputElement) || inp.getAttribute('data-rep-upload') !== '1') return;
+  const box = inp.closest('.a-rep-img');
+  const file = inp.files && inp.files[0];
+  if (!box || !file) return;
+  const status = box.querySelector('.a-upload-status');
+  status.className = 'a-upload-status';
+  status.textContent = 'Upload ho raha hai...';
+  const res = await AdminDB.uploadFile(file, box.getAttribute('data-folder'));
+  inp.value = '';
+  if (!res.ok) { status.className = 'a-upload-status err'; status.textContent = res.error; return; }
+  box.querySelector('input[data-k]').value = res.url;
+  const pv = box.querySelector('.a-upload-preview');
+  if (pv) { pv.src = res.url; pv.style.display = 'block'; }
+  status.className = 'a-upload-status ok';
+  status.textContent = 'Upload ho gaya. Ab Save All dabayein.';
+});

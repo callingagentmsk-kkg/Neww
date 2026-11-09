@@ -74,6 +74,24 @@ function loadLocalAuth() {
 }
 function saveLocalAuth(a) { localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify(a)); }
 
+/* Resize + re-encode an image in the browser (keeps uploads light & fast). */
+function compressImage(file, maxSide, quality) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * ratio); c.height = Math.round(img.height * ratio);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('compress failed')), 'image/webp', quality);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image load failed')); };
+    img.src = url;
+  });
+}
+
 const AdminDB = {
   isSupabase: () => (typeof IS_SUPABASE_CONFIGURED !== 'undefined' && IS_SUPABASE_CONFIGURED),
 
@@ -120,23 +138,62 @@ const AdminDB = {
     return loadLocalAuth().username;
   },
 
-  async changeCredentials(newUsername, newPassword) {
+  async changeCredentials(newUsername, newPassword, currentPassword) {
     if (this.isSupabase()) {
-      if (newUsername) {
-        await supabaseClient.from('admin_profile').update({ username: newUsername, updated_at: new Date().toISOString() }).eq('id', 1);
-      }
+      // Re-verify the CURRENT password first (so a stolen/open session cannot silently change it)
+      const { data: profile } = await supabaseClient.from('admin_profile').select('*').eq('id', 1).single();
+      const email = profile ? profile.auth_email : 'avinash@cwa-admin.local';
+      const chk = await supabaseClient.auth.signInWithPassword({ email, password: currentPassword || '' });
+      if (chk.error) return { ok: false, error: 'Current password galat hai.' };
       if (newPassword) {
         const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+        if (error) return { ok: false, error: error.message };
+      }
+      if (newUsername) {
+        const { error } = await supabaseClient.from('admin_profile').update({ username: newUsername, updated_at: new Date().toISOString() }).eq('id', 1);
         if (error) return { ok: false, error: error.message };
       }
       return { ok: true };
     } else {
       const auth = loadLocalAuth();
+      if ((currentPassword || '') !== auth.password) return { ok: false, error: 'Current password galat hai.' };
       if (newUsername) auth.username = newUsername;
       if (newPassword) auth.password = newPassword;
       saveLocalAuth(auth);
       return { ok: true };
     }
+  },
+
+  /* ---------------- FILE / IMAGE UPLOAD ---------------- */
+  // Supabase Storage bucket "site-images" (public read, admin-only write) — created by
+  // supabase/migration_phase8.sql. In LOCAL mode (no Supabase) images are compressed and
+  // stored as data-URLs inside the browser DB so the panel can still be tried out.
+  async uploadFile(file, folder) {
+    if (!file) return { ok: false, error: 'File select nahi hui.' };
+    const isImg = /^image\//.test(file.type);
+    const isPdf = file.type === 'application/pdf';
+    if (!isImg && !isPdf) return { ok: false, error: 'Sirf image (JPG/PNG/WEBP) ya PDF upload kar sakte hain.' };
+    if (file.size > 15 * 1024 * 1024) return { ok: false, error: 'File 15MB se badi hai.' };
+    if (this.isSupabase()) {
+      let blob = file, ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (isImg && file.size > 600 * 1024 && !/svg|gif/.test(file.type)) {
+        try { blob = await compressImage(file, 1600, 0.85); ext = 'webp'; } catch (e) { blob = file; }
+      }
+      const path = `${folder || 'misc'}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabaseClient.storage.from('site-images').upload(path, blob, {
+        cacheControl: '31536000', upsert: false, contentType: blob.type || file.type
+      });
+      if (error) {
+        const hint = /bucket/i.test(error.message) ? ' (Supabase me migration_phase8.sql run karein)' : '';
+        return { ok: false, error: error.message + hint };
+      }
+      const { data } = supabaseClient.storage.from('site-images').getPublicUrl(path);
+      return { ok: true, url: data.publicUrl };
+    }
+    if (isPdf) return { ok: false, error: 'Local mode me PDF upload nahi hota — Supabase connect hone ke baad kaam karega.' };
+    const blob = await compressImage(file, 1200, 0.8);
+    const url = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+    return { ok: true, url };
   },
 
   /* ---------------- SITE SETTINGS ---------------- */
