@@ -137,11 +137,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setSrc('headerLogo', s.logo_url);
     setSrc('footerLogo', s.logo_url);
     setSrc('aboutImg', s.about_image_url);
-    if (s.about_teacher_name) {
-      const parts = s.about_teacher_name.trim().split(' ');
-      const last = parts.pop();
-      setHtml('aboutName', `${parts.join(' ')} <span class="text-gradient">${last}</span>`);
-    }
+    setText('aboutName', s.about_teacher_name);
     setText('aboutRole', s.about_role);
     setHtml('aboutText', s.about_text);
 
@@ -168,11 +164,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (waFloat && s.whatsapp_link) waFloat.setAttribute('href', s.whatsapp_link);
 
     // Socials (both contact section + footer + drawer)
-    document.querySelectorAll('.social-btn.yt, .footer-socials a[aria-label="YouTube"], .mdrawer-social a[aria-label="YouTube"]')
+    document.querySelectorAll('.social-btn.yt, .float-social .fs.yt, .footer-socials a[aria-label="YouTube"], .mdrawer-social a[aria-label="YouTube"]')
       .forEach(a => { if (s.social_youtube) a.href = s.social_youtube; });
-    document.querySelectorAll('.social-btn.fb, .footer-socials a[aria-label="Facebook"], .mdrawer-social a[aria-label="Facebook"]')
+    document.querySelectorAll('.social-btn.fb, .float-social .fs.fb, .footer-socials a[aria-label="Facebook"], .mdrawer-social a[aria-label="Facebook"]')
       .forEach(a => { if (s.social_facebook) a.href = s.social_facebook; });
-    document.querySelectorAll('.social-btn.ig, .footer-socials a[aria-label="Instagram"], .mdrawer-social a[aria-label="Instagram"]')
+    document.querySelectorAll('.social-btn.ig, .float-social .fs.ig, .footer-socials a[aria-label="Instagram"], .mdrawer-social a[aria-label="Instagram"]')
       .forEach(a => { if (s.social_instagram) a.href = s.social_instagram; });
   }
   applySiteSettings();
@@ -194,24 +190,57 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   function renderSiteContent() {
     const s = siteSettings;
+    const q = (sel) => document.querySelector(sel);
 
-    // SEO / page title
+    // ---- Theme colours (Admin -> Website Content -> Design colours)
+    const root = document.documentElement.style;
+    if (s.theme_nav) root.setProperty('--nav', s.theme_nav);
+    if (s.theme_accent) root.setProperty('--gold', s.theme_accent);
+    if (s.theme_primary) { root.setProperty('--primary', s.theme_primary); }
+
+    // ---- SEO / page title
     if (s.seo_title) document.title = s.seo_title;
     if (s.seo_description) {
-      const md = document.querySelector('meta[name="description"]');
+      const md = q('meta[name="description"]');
       if (md) md.setAttribute('content', s.seo_description);
     }
 
-    // Navigation (desktop header + mobile drawer)
+    // ---- Brand
+    const brandMain = document.getElementById('brandMain');
+    if (brandMain && s.site_title) brandMain.textContent = s.site_title;
+    const joinLogo = document.getElementById('joinLogo');
+    if (joinLogo && s.logo_url) joinLogo.src = s.logo_url;
+
+    // ---- Simple text boxes: any element with data-s="key" (text) / data-sh="key" (link)
+    document.querySelectorAll('[data-s]').forEach(el => {
+      const v = s[el.getAttribute('data-s')];
+      if (v !== undefined && v !== null && v !== '') el.textContent = v;
+    });
+    document.querySelectorAll('[data-sh]').forEach(el => {
+      const v = s[el.getAttribute('data-sh')];
+      if (v) el.setAttribute('href', safeHref(v));
+    });
+    const promoLink = s.promo_btn_link;
+
+    // ---- Header: menu + 2 buttons (desktop) / drawer (mobile)
+    const ctaText = s.cta_text || 'Admission';
+    const ctaHref = safeHref(s.cta_link || 'tel:+916207434940');
+    const navCta = document.getElementById('navCta');
+    if (navCta) { navCta.textContent = ctaText; navCta.setAttribute('href', ctaHref); }
+    const navBtn2 = document.getElementById('navBtn2');
+    if (navBtn2) {
+      if (s.header_btn2_text) {
+        navBtn2.style.display = '';
+        navBtn2.querySelector('span').textContent = s.header_btn2_text;
+        navBtn2.setAttribute('href', safeHref(s.header_btn2_link || '#result'));
+      } else navBtn2.style.display = 'none';
+    }
     if (Array.isArray(s.nav_links) && s.nav_links.length) {
       const mainNav = document.getElementById('mainNav');
       const drawer = document.getElementById('mobileDrawer');
-      const ctaText = s.cta_text || 'Admission';
-      const ctaHref = safeHref(s.cta_link || 'tel:+916207434940');
       if (mainNav) {
         mainNav.innerHTML = s.nav_links.filter(n => n.header !== false).map((n, i) =>
-          `<a href="${escHtml(safeHref(n.href))}" class="nav-link ${i === 0 ? 'active' : ''}">${escHtml(n.label)}</a>`).join('') +
-          `<a href="${escHtml(ctaHref)}" class="nav-cta"><i class="fa-solid fa-phone"></i> ${escHtml(ctaText)}</a>`;
+          `<a href="${escHtml(safeHref(n.href))}" class="nav-link ${i === 0 ? 'active' : ''}">${escHtml(n.label)}</a>`).join('');
       }
       if (drawer) {
         const social = drawer.querySelector('.mdrawer-social');
@@ -223,59 +252,153 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    // Subjects strip
-    const strip = document.querySelector('.subjects-strip .section-container');
-    if (strip && Array.isArray(s.subject_cards) && s.subject_cards.length) {
-      strip.innerHTML = s.subject_cards.map((c, i) => `
-        <div class="subject-card" data-aos="flip-left" data-aos-delay="${i * 150}">
+    // ---- Hero background photo (optional)
+    const heroBg = document.getElementById('heroBgImg');
+    if (heroBg && s.hero_bg_url) heroBg.style.backgroundImage = `url("${String(s.hero_bg_url).replace(/"/g, '%22')}")`;
+
+    // ---- Toppers ticker (pills)
+    const ticker = document.getElementById('tickerTrack');
+    const tickerSec = document.getElementById('tickerSection');
+    const ach = (Array.isArray(s.achievers) ? s.achievers : []).filter(a => a && (a.name || a.rank));
+    if (ticker && tickerSec) {
+      if (!ach.length) tickerSec.style.display = 'none';
+      else {
+        tickerSec.style.display = '';
+        const pill = a => `<div class="ticker-pill">
+          ${a.image_url ? `<img src="${escHtml(a.image_url)}" alt="" loading="lazy">` : `<span class="tp-av">${escHtml((a.name || '?').trim().charAt(0).toUpperCase())}</span>`}
+          <span class="tp-t"><b>${escHtml(a.name)}</b><small>${escHtml(a.rank)}</small></span></div>`;
+        const one = ach.map(pill).join('');
+        ticker.innerHTML = one + one + one;
+      }
+    }
+
+    // ---- Subject cards
+    const sc = document.getElementById('subjectCards');
+    if (sc && Array.isArray(s.subject_cards) && s.subject_cards.length) {
+      sc.innerHTML = s.subject_cards.map((c, i) => `
+        <div class="subject-card" data-aos="fade-up" data-aos-delay="${i * 80}">
           <div class="subject-icon-3d ${['physics','chemistry','maths'].includes(c.color) ? c.color : 'physics'}"><i class="${escHtml(safeIcon(c.icon))}"></i></div>
-          <h3>${escHtml(c.name)}</h3>
-          <p>${escHtml(c.text)}</p>
+          <div><h3>${escHtml(c.name)}</h3><p>${escHtml(c.text)}</p></div>
         </div>`).join('');
     }
 
-    // Why cards
-    const whyGrid = document.querySelector('.why-grid');
+    // ---- Promo banner: image banners if admin added any, else text banner
+    const promoBox = document.getElementById('promoBox');
+    const promoSec = document.getElementById('promoSection');
+    if (promoBox) {
+      const banners = (Array.isArray(s.promo_banners) ? s.promo_banners : []).filter(b => b && b.image_url);
+      if (banners.length) {
+        promoBox.innerHTML = banners.map(b => {
+          const img = `<img src="${escHtml(b.image_url)}" alt="${escHtml(b.title || 'Banner')}" loading="lazy">`;
+          return `<div class="promo-img">${b.link ? `<a href="${escHtml(safeHref(b.link))}" ${/^https?:/i.test(b.link) ? 'target="_blank" rel="noopener"' : ''}>${img}</a>` : img}</div>`;
+        }).join('');
+      } else if (s.promo_title || s.promo_text) {
+        promoBox.innerHTML = `<div class="promo-text">
+          <div><h3>${escHtml(s.promo_title)}</h3><p>${escHtml(s.promo_text)}</p></div>
+          ${s.promo_btn_text ? `<a class="btn btn-gold" href="${escHtml(safeHref(promoLink))}" ${/^https?:/i.test(promoLink || '') ? 'target="_blank" rel="noopener"' : ''}>${escHtml(s.promo_btn_text)}</a>` : ''}
+        </div>`;
+      } else if (promoSec) promoSec.style.display = 'none';
+    }
+
+    // ---- Proud moments (topper photo cards)
+    const pg = document.getElementById('proudGrid');
+    const tsec = document.getElementById('toppers');
+    const pm = (Array.isArray(s.proud_moments) ? s.proud_moments : []).filter(p => p && (p.name || p.image_url));
+    if (pg && tsec) {
+      if (!pm.length) tsec.style.display = 'none';
+      else {
+        tsec.style.display = '';
+        pg.innerHTML = pm.map((p, i) => `
+          <div class="proud-card" data-aos="fade-up" data-aos-delay="${(i % 4) * 80}">
+            <div class="proud-img">${p.image_url
+              ? `<img src="${escHtml(p.image_url)}" alt="${escHtml(p.name)}" loading="lazy">`
+              : `<div class="proud-ph"><i class="fa-solid fa-user-graduate"></i></div>`}</div>
+            <div class="proud-cap">
+              ${p.rank ? `<span class="proud-rank">${escHtml(p.rank)}</span>` : ''}
+              <b>${escHtml(p.name)}</b>
+              ${p.sub ? `<small>${escHtml(p.sub)}</small>` : ''}
+            </div>
+          </div>`).join('');
+      }
+    }
+
+    // ---- About: 4 vision cards
+    const ac = document.getElementById('aboutCards');
+    if (ac) {
+      const cards = Array.isArray(s.about_cards) ? s.about_cards.filter(c => c && (c.title || c.text)) : [];
+      ac.innerHTML = cards.map(c => `
+        <div class="about-card" ${c.image_url ? `style="background-image:url('${String(c.image_url).replace(/'/g, '%27')}')"` : ''}>
+          <div class="about-card-in">
+            ${c.tag ? `<span class="ac-tag">${escHtml(c.tag)}</span>` : ''}
+            <h4>${escHtml(c.title)}</h4>
+            <p>${escHtml(c.text)}</p>
+          </div>
+        </div>`).join('');
+      ac.style.display = cards.length ? '' : 'none';
+    }
+    const aboutCta = document.getElementById('aboutCta');
+    if (aboutCta && s.helpline_number) aboutCta.setAttribute('href', 'tel:' + s.helpline_number.replace(/\s+/g, ''));
+
+    // ---- Why cards
+    const whyGrid = q('.why-grid');
     if (whyGrid && Array.isArray(s.why_cards) && s.why_cards.length) {
       whyGrid.innerHTML = s.why_cards.map((c, i) => `
-        <div class="why-card" data-aos="fade-up" data-aos-delay="${i * 100}">
+        <div class="why-card" data-aos="fade-up" data-aos-delay="${(i % 3) * 80}">
           <div class="why-icon"><i class="${escHtml(safeIcon(c.icon))}"></i></div>
           <h3>${escHtml(c.title)}</h3>
           <p>${escHtml(c.text)}</p>
         </div>`).join('');
     }
 
-    // Footer text + brand
-    const fa = document.querySelector('.footer-about');
-    if (fa && s.footer_about) fa.textContent = s.footer_about;
-    if (s.site_title) {
-      const fh = document.querySelector('.footer-logo h3');
-      if (fh) fh.textContent = s.site_title;
-    }
-    if (s.site_tagline) {
-      const fp = document.querySelector('.footer-logo p');
-      if (fp) fp.textContent = s.site_tagline;
-      const bs = document.querySelector('.brand-sub');
-      if (bs) bs.textContent = s.site_tagline;
+    // ---- Join section: points + image carousel
+    const jp = document.getElementById('joinPoints');
+    if (jp) jp.innerHTML = (Array.isArray(s.join_points) ? s.join_points : []).filter(p => p && p.text)
+      .map(p => `<li><i class="fa-solid fa-circle-check"></i> ${escHtml(p.text)}</li>`).join('');
+    const jc = document.getElementById('joinCarousel');
+    const jimgs = (Array.isArray(s.join_images) ? s.join_images : []).filter(i => i && i.image_url);
+    if (jc) {
+      if (!jimgs.length) jc.style.display = 'none';
+      else {
+        jc.style.display = '';
+        jc.innerHTML = `<div class="jc-stage">${jimgs.map((i, n) => `<img class="jc-slide ${n === 0 ? 'active' : ''}" src="${escHtml(i.image_url)}" alt="" loading="lazy">`).join('')}</div>
+          <div class="jc-dots">${jimgs.map((_, n) => `<span class="${n === 0 ? 'active' : ''}"></span>`).join('')}</div>`;
+        let cur = 0;
+        const slides = jc.querySelectorAll('.jc-slide'), dots = jc.querySelectorAll('.jc-dots span');
+        clearInterval(window.__jcTimer);
+        const go = (n) => { slides[cur].classList.remove('active'); dots[cur].classList.remove('active'); cur = n; slides[cur].classList.add('active'); dots[cur].classList.add('active'); };
+        dots.forEach((d, n) => d.addEventListener('click', () => go(n)));
+        if (jimgs.length > 1) window.__jcTimer = setInterval(() => go((cur + 1) % jimgs.length), 3600);
+      }
     }
 
-    // Footer "Links" column: standard links + extra admin-added links
-    const linkCol = document.querySelector('.footer-col:nth-child(2) ul');
+    // ---- Footer text + brand
+    const fa = q('.footer-about');
+    if (fa && s.footer_about) fa.textContent = s.footer_about;
+    if (s.site_title) { const fh = q('.footer-logo h3'); if (fh) fh.textContent = s.site_title; }
+    if (s.site_tagline) {
+      const fp = q('.footer-logo p'); if (fp) fp.textContent = s.site_tagline;
+      const bs = q('.brand-sub'); if (bs) bs.textContent = s.site_tagline;
+    }
+
+    // ---- Footer "Links" column: standard links + extra admin-added links
+    const linkCol = q('.footer-col:nth-child(2) ul');
     if (linkCol && Array.isArray(s.footer_extra_links) && s.footer_extra_links.length) {
       linkCol.innerHTML += s.footer_extra_links.map(l =>
         `<li><a href="${escHtml(safeHref(l.href))}" ${/^https?:/i.test(l.href || '') ? 'target="_blank" rel="noopener"' : ''}>${escHtml(l.label)}</a></li>`).join('');
     }
 
-    // Extra social icons (Telegram, Twitter, LinkedIn ... any FontAwesome brand)
+    // ---- Extra social icons (Telegram, X, LinkedIn ... any FontAwesome brand)
     if (Array.isArray(s.extra_socials) && s.extra_socials.length) {
       const mk = (cls) => s.extra_socials.map(x =>
-        `<a href="${escHtml(safeHref(x.url))}" target="_blank" rel="noopener" aria-label="${escHtml(x.label || '')}" class="${cls}"${cls === 'social-btn' ? ' style="background:#4C3CE3"' : ''}><i class="${escHtml(safeIcon(x.icon))}"></i></a>`).join('');
+        `<a href="${escHtml(safeHref(x.url))}" target="_blank" rel="noopener" aria-label="${escHtml(x.label || '')}" class="${cls}"${cls === 'social-btn' ? ' style="background:#4338CA"' : ''}><i class="${escHtml(safeIcon(x.icon))}"></i></a>`).join('');
       const cs = document.getElementById('contactSocials');
       if (cs) cs.insertAdjacentHTML('beforeend', mk('social-btn'));
       const fs = document.getElementById('footerSocials');
       if (fs) fs.insertAdjacentHTML('beforeend', mk(''));
-      const ds = document.querySelector('.mdrawer-social');
+      const ds = q('.mdrawer-social');
       if (ds) ds.insertAdjacentHTML('beforeend', mk(''));
+      const fl = document.getElementById('floatSocial');
+      if (fl) fl.insertAdjacentHTML('beforeend', mk('fs gen'));
     }
   }
   renderSiteContent();
@@ -320,26 +443,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   let sliderInterval;
 
   function renderHero() {
+    const st = siteSettings;
+    const chips = Array.isArray(st.hero_chips) ? st.hero_chips.filter(c => c && c.title) : [];
+    const stats = Array.isArray(st.hero_stats) ? st.hero_stats.filter(x => x && (x.label || x.num)) : [];
     let html = '';
     heroSlides.forEach((slide, i) => {
       html += `<div class="hero-slide ${i === 0 ? 'active' : ''}" data-slide="${i}">
         <div class="hero-content">
-          <p class="hero-eyebrow">${slide.eyebrow || ''}</p>
+          <div class="hero-badge">
+            <span class="hb-medal"><i class="fa-solid fa-award"></i></span>
+            <span class="hb-t">
+              <small>${escHtml(st.hero_badge_small || '')}</small>
+              <b>${slide.eyebrow || escHtml(st.hero_badge_sub || '')}</b>
+            </span>
+          </div>
           <h1 class="hero-title">
             <span class="line1">${slide.line1 || ''}</span>
             <span class="line2">${slide.line2 || ''} <span class="highlight">${slide.highlight || ''}</span></span>
           </h1>
           <p class="hero-desc">${slide.description || ''}</p>
           <div class="hero-btns">
-            ${slide.btn1_text ? `<a href="${slide.btn1_link || '#'}" class="btn btn-primary"><i class="fa-solid fa-play"></i> ${slide.btn1_text}</a>` : ''}
-            ${slide.btn2_text ? `<a href="${slide.btn2_link || '#'}" class="btn btn-outline"><i class="fa-solid fa-chart-line"></i> ${slide.btn2_text}</a>` : ''}
+            ${slide.btn1_text ? `<a href="${escHtml(safeHref(slide.btn1_link))}" class="btn btn-gold">${slide.btn1_text}</a>` : ''}
+            ${slide.btn2_text ? `<a href="${escHtml(safeHref(slide.btn2_link))}" class="btn btn-outline">${slide.btn2_text}</a>` : ''}
           </div>
-          ${i === 0 && Array.isArray(siteSettings.hero_stats) && siteSettings.hero_stats.length ? `<div class="hero-stats">
-            ${siteSettings.hero_stats.map(st => `<div class="stat"><span class="num" data-count="${parseInt(st.num, 10) || 0}">0</span>${st.suffix || ''}<small>${st.label || ''}</small></div>`).join('')}
+          ${stats.length ? `<div class="hero-stats">
+            ${stats.map(x => `<div class="stat"><b><span class="num" data-count="${parseInt(x.num, 10) || 0}">0</span>${escHtml(x.suffix || '')}</b><small>${escHtml(x.label || '')}</small></div>`).join('')}
           </div>` : ''}
         </div>
         <div class="hero-visual">
-          <img src="${slide.image_url || 'assets/img/teacher.webp'}" alt="${slide.line1 || 'CWA Science Classes'}" class="hero-float-img">
+          <div class="hero-circle"><img src="${escHtml(slide.image_url || 'assets/img/teacher.webp')}" alt="${escHtml(slide.line1 || 'CWA Science Classes')}" class="hero-float-img"></div>
+          ${chips.slice(0, 4).map((c, n) => `<div class="hero-chip hc${n + 1}"><b>${escHtml(c.title)}</b><small>${escHtml(c.sub || '')}</small></div>`).join('')}
+          ${st.hero_tag_name ? `<div class="hero-nametag"><b>${escHtml(st.hero_tag_name)}</b><small>${escHtml(st.hero_tag_role || '')}</small></div>` : ''}
         </div>
       </div>`;
     });
@@ -353,6 +487,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       dot.addEventListener('click', () => goToSlide(i));
       dotsContainer.appendChild(dot);
     });
+    dotsContainer.style.display = heroSlides.length > 1 ? '' : 'none';
 
     // (re)start counter observation for any new .num elements
     setupCounters();

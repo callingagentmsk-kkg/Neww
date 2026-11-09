@@ -262,3 +262,8 @@ table.a-table tr:last-child td{ border-bottom:none; }
 .a-rep-cell input, .a-rep-cell select, .a-rep-cell textarea{ width:100%; padding:9px 10px; border:2px solid var(--a-border); border-radius:8px; font-size:.88rem; font-family:inherit; }
 .a-rep-check{ display:flex; align-items:center; gap:6px; font-size:.82rem; font-weight:600; padding-bottom:10px; }
 .a-rep-del{ margin-bottom:2px; }
+
+/* repeater image cell */
+.a-rep-img{ flex:1 1 220px; }
+.a-rep-img .a-upload-row input[data-k]{ flex:1; min-width:0; }
+.a-rep-img .a-upload-preview{ max-height:70px; }

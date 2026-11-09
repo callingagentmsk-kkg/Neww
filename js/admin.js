@@ -421,7 +421,44 @@ const CONTENT_SECTIONS = [
     help: 'YouTube/Facebook/Instagram ke alawa aur icons (Telegram, Twitter, LinkedIn...). Icon e.g. fa-brands fa-telegram',
     fields: [
       { k: 'label', l: 'Naam', ph: 'Telegram' }, { k: 'icon', l: 'Icon', ph: 'fa-brands fa-telegram' }, { k: 'url', l: 'Link', ph: 'https://t.me/...' }
-    ], blank: { label: '', icon: 'fa-brands fa-telegram', url: '' } }
+    ], blank: { label: '', icon: 'fa-brands fa-telegram', url: '' } },
+
+  /* ---------- Toppers-Wisdom style sections ---------- */
+  { key: 'hero_chips', title: 'Hero - Floating Chips (photo ke aas-paas)', icon: 'fa-tags',
+    help: 'Hero photo ke around 4 chhote white cards (max 4 dikhte hain).',
+    fields: [{ k: 'title', l: 'Title', ph: 'Class 9 - 12' }, { k: 'sub', l: 'Chhota text', ph: 'Bihar Board PCM' }],
+    blank: { title: '', sub: '' } },
+  { key: 'achievers', title: 'Toppers Ticker (ghumne wali patti)', icon: 'fa-ranking-star',
+    help: 'Hero ke neeche ghumne wale student pills. Photo optional hai - na do to naam ka pehla akshar dikhega.',
+    fields: [
+      { k: 'name', l: 'Student Naam', ph: 'Rahul Kumar' }, { k: 'rank', l: 'Rank / Marks', ph: 'Class 10 - 96%' },
+      { k: 'image_url', l: 'Photo', type: 'image', folder: 'toppers' }
+    ], blank: { name: '', rank: '', image_url: '' } },
+  { key: 'promo_banners', title: 'Promo Banners (poster image)', icon: 'fa-rectangle-ad',
+    help: 'Badi poster image (jaise Toppers Wisdom ka Daily Editorial banner). Image add karte hi neeche wala text banner hat jata hai. Link optional.',
+    fields: [
+      { k: 'image_url', l: 'Banner Image', type: 'image', folder: 'banners', wide: true },
+      { k: 'link', l: 'Click Link (optional)', ph: 'https://... ya tel:+91...' }, { k: 'title', l: 'Alt naam', ph: 'Admission Open' }
+    ], blank: { image_url: '', link: '', title: '' } },
+  { key: 'proud_moments', title: 'Proud Moments - Topper Photos (grid)', icon: 'fa-trophy',
+    help: 'Sir ke saath topper students ki photo cards. Square photo best rehti hai.',
+    fields: [
+      { k: 'image_url', l: 'Photo', type: 'image', folder: 'toppers' },
+      { k: 'name', l: 'Naam', ph: 'Rahul Kumar' }, { k: 'rank', l: 'Gold badge', ph: 'Rank 1 / 96%' }, { k: 'sub', l: 'Neeche text', ph: 'Class 10 | Bihar Board' }
+    ], blank: { image_url: '', name: '', rank: '', sub: '' } },
+  { key: 'about_cards', title: 'About - Vision / Mission Cards (4 photo cards)', icon: 'fa-bullseye',
+    help: 'About section ke right side ke cards. Background photo optional.',
+    fields: [
+      { k: 'image_url', l: 'Background Photo', type: 'image', folder: 'about' },
+      { k: 'tag', l: 'Red tag', ph: 'OUR VISION' }, { k: 'title', l: 'Title', ph: 'Best teacher for every student' },
+      { k: 'text', l: 'Text', type: 'textarea', ph: 'Short description' }
+    ], blank: { image_url: '', tag: '', title: '', text: '' } },
+  { key: 'join_points', title: 'Join Section - Tick Points', icon: 'fa-circle-check',
+    help: 'Join / Download section ke tick wale points.',
+    fields: [{ k: 'text', l: 'Point', ph: 'Free batches se shuruaat karein' }], blank: { text: '' } },
+  { key: 'join_images', title: 'Join Section - Image Slider', icon: 'fa-images',
+    help: 'Right side me ghumne wali images (poster / screenshot). Kitni bhi add karein.',
+    fields: [{ k: 'image_url', l: 'Image', type: 'image', folder: 'banners', wide: true }], blank: { image_url: '' } }
 ];
 
 function repRowHtml(sec, item) {
@@ -429,6 +466,10 @@ function repRowHtml(sec, item) {
     const v = item[f.k];
     if (f.type === 'check') return `<label class="a-rep-check"><input type="checkbox" data-k="${f.k}" ${v !== false ? 'checked' : ''}> ${f.l}</label>`;
     if (f.type === 'select') return `<div class="a-rep-cell"><span>${f.l}</span><select data-k="${f.k}">${f.options.map(o => `<option ${v === o ? 'selected' : ''}>${o}</option>`).join('')}</select></div>`;
+    if (f.type === 'image') return `<div class="a-rep-cell ${f.wide ? 'wide' : ''} a-rep-img" data-folder="${f.folder || 'misc'}"><span>${f.l}</span>
+      <div class="a-upload-row"><input data-k="${f.k}" value="${esc(v)}" placeholder="https://... ya Upload">
+        <label class="a-btn a-btn-sm a-btn-outline a-upload-btn"><i class="fa-solid fa-upload"></i><input type="file" accept="image/*" hidden data-rep-upload="1"></label></div>
+      <img class="a-upload-preview" src="${esc(v)}" style="${v ? '' : 'display:none'}" onerror="this.style.display='none'"><div class="a-upload-status"></div></div>`;
     if (f.type === 'textarea') return `<div class="a-rep-cell wide"><span>${f.l}</span><textarea data-k="${f.k}" rows="2" placeholder="${esc(f.ph || '')}">${(v ?? '').toString().replace(/</g, '&lt;')}</textarea></div>`;
     return `<div class="a-rep-cell"><span>${f.l}</span><input data-k="${f.k}" type="${f.type || 'text'}" value="${esc(v)}" placeholder="${esc(f.ph || '')}"></div>`;
   }).join('')}<button type="button" class="a-btn a-btn-sm a-btn-danger a-rep-del" title="Delete"><i class="fa-solid fa-trash"></i></button></div>`;
@@ -468,6 +509,25 @@ async function renderContentPanel() {
       <div class="a-field"><label>Footer About Text</label><textarea id="c_footer_about" rows="2">${(st.footer_about ?? D.footer_about ?? '').replace(/</g, '&lt;')}</textarea></div>
     </div>
 
+    <div class="a-card"><h4><i class="fa-solid fa-palette"></i> Design Colours &amp; Hero Background</h4>
+      <p style="color:var(--a-gray);font-size:.82rem;margin:-6px 0 12px;">Poori website ke rang yahin se badlein. Save ke baad live site refresh karein.</p>
+      <div class="a-grid-3">
+        <div class="a-field"><label>Header / Navbar Rang</label><input type="color" id="c_theme_nav" value="${esc(st.theme_nav ?? D.theme_nav)}" style="height:46px;padding:4px;"></div>
+        <div class="a-field"><label>Button / Highlight (Gold) Rang</label><input type="color" id="c_theme_accent" value="${esc(st.theme_accent ?? D.theme_accent)}" style="height:46px;padding:4px;"></div>
+        <div class="a-field"><label>Primary (links / tags) Rang</label><input type="color" id="c_theme_primary" value="${esc(st.theme_primary ?? D.theme_primary)}" style="height:46px;padding:4px;"></div>
+      </div>
+      <div class="a-file-field" data-folder="hero">
+        ${fileField('hero_bg_url', st.hero_bg_url ?? D.hero_bg_url, 'Hero Background Photo (optional - halka fade hokar peeche dikhega)', 'hero').replace('class="a-field a-file-field"', 'class="a-field a-file-field"')}
+      </div>
+    </div>
+
+    <div class="a-card"><h4><i class="fa-solid fa-font"></i> Section Headings &amp; Texts</h4>
+      <p style="color:var(--a-gray);font-size:.82rem;margin:-6px 0 12px;">Website ke headings, buttons aur chhote texts.</p>
+      <div class="a-grid-2">
+        ${(typeof SITE_TEXT_FIELDS !== 'undefined' ? SITE_TEXT_FIELDS : []).map(f => `<div class="a-field"><label>${f.l}</label><input data-text-key="${f.k}" value="${esc(st[f.k] ?? D[f.k])}"></div>`).join('')}
+      </div>
+    </div>
+
     ${CONTENT_SECTIONS.map(sec => `
       <div class="a-card"><h4><i class="fa-solid ${sec.icon}"></i> ${sec.title}</h4>
         <p style="color:var(--a-gray);font-size:.82rem;margin:-6px 0 12px;">${sec.help}</p>
@@ -493,8 +553,13 @@ async function renderContentPanel() {
       cta_link: document.getElementById('c_cta_link').value.trim(),
       seo_title: document.getElementById('c_seo_title').value.trim(),
       seo_description: document.getElementById('c_seo_description').value.trim(),
-      footer_about: document.getElementById('c_footer_about').value.trim()
+      footer_about: document.getElementById('c_footer_about').value.trim(),
+      theme_nav: document.getElementById('c_theme_nav').value,
+      theme_accent: document.getElementById('c_theme_accent').value,
+      theme_primary: document.getElementById('c_theme_primary').value,
+      hero_bg_url: (el.querySelector('input[name="hero_bg_url"]') || {}).value || ''
     };
+    el.querySelectorAll('[data-text-key]').forEach(inp => { data[inp.getAttribute('data-text-key')] = inp.value.trim(); });
     CONTENT_SECTIONS.forEach(sec => { data[sec.key] = collectRepeater(sec); });
     await AdminDB.saveSettings(data);
     toast('Website content save ho gaya — live site refresh karke dekhein', 'ok');
@@ -1179,4 +1244,25 @@ document.addEventListener('change', async (e) => {
   if (pv) { pv.src = res.url; pv.style.display = 'block'; }
   status.className = 'a-upload-status ok';
   status.textContent = 'Upload ho gaya. Ab neeche Save dabayein.';
+});
+
+
+/* Upload button inside Website Content repeater rows (image cells) */
+document.addEventListener('change', async (e) => {
+  const inp = e.target;
+  if (!(inp instanceof HTMLInputElement) || inp.getAttribute('data-rep-upload') !== '1') return;
+  const box = inp.closest('.a-rep-img');
+  const file = inp.files && inp.files[0];
+  if (!box || !file) return;
+  const status = box.querySelector('.a-upload-status');
+  status.className = 'a-upload-status';
+  status.textContent = 'Upload ho raha hai...';
+  const res = await AdminDB.uploadFile(file, box.getAttribute('data-folder'));
+  inp.value = '';
+  if (!res.ok) { status.className = 'a-upload-status err'; status.textContent = res.error; return; }
+  box.querySelector('input[data-k]').value = res.url;
+  const pv = box.querySelector('.a-upload-preview');
+  if (pv) { pv.src = res.url; pv.style.display = 'block'; }
+  status.className = 'a-upload-status ok';
+  status.textContent = 'Upload ho gaya. Ab Save All dabayein.';
 });

@@ -14,6 +14,7 @@ Login default: **Username `AVINASH` / Password `AVINASH`** -> turant **Change Lo
 | Batches | Batch image (upload), price, payment link, subjects, chapters, YouTube video, PDF (upload), ON/OFF |
 | Site Settings | Logo (upload), phone, WhatsApp, email, address, timing, map, YouTube/Facebook/Instagram links |
 | **Website Content** | Menu links, header button + link, hero numbers, subject cards, Khasiyat cards, footer links, extra social icons (Telegram etc.), SEO title |
+| **Website Content (Toppers-Wisdom design)** | Header/button/menu rang, hero chips, toppers ticker (photo), promo banner (image), proud-moments photo grid, About vision cards (photo), join-section images + tick points, headings aur buttons ke text - sab image **Upload ya URL** se |
 | Terms & Policy | Terms / Privacy text |
 | Student Data / Results | Students aur weekly test marks |
 | Change Login | Username + password (current password poochta hai) |
