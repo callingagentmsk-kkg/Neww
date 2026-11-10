@@ -38,6 +38,7 @@ function loadLocalDB() {
           id: `${b.id}-s${si}-c${ci}`, title: ch.title, youtube_id: ch.youtube, duration: ch.duration,
           description: ch.description || '', sort_order: ci,
           video_enabled: ch.video_enabled !== undefined ? ch.video_enabled : true,
+          chapter_videos: (ch.youtube ? [{ id: `${b.id}-s${si}-c${ci}-v0`, title: ch.title, youtube_id: ch.youtube, duration: ch.duration || '', enabled: ch.video_enabled !== false, sort_order: 0 }] : []),
           chapter_resources: (ch.resources || []).map((r, ri) => ({
             id: `${b.id}-s${si}-c${ci}-r${ri}`, resource_type: r.type, url: r.url, description: r.description || '', sort_order: ri,
             enabled: r.enabled !== undefined ? r.enabled : true
@@ -279,14 +280,110 @@ const AdminDB = {
   },
 
   /* ---------------- BATCHES (+ subjects + chapters + resources) ---------------- */
+  // true once migration_phase9.sql (chapter_videos table) is present in Supabase
+  videosTable: null,
   async listBatches() {
     if (this.isSupabase()) {
-      const { data } = await supabaseClient
-        .from('batches').select('*, subjects(*, chapters(*, chapter_resources(*)))')
+      let res = await supabaseClient
+        .from('batches').select('*, subjects(*, chapters(*, chapter_resources(*), chapter_videos(*)))')
         .order('sort_order');
-      return data || [];
+      if (res.error) {
+        this.videosTable = false;
+        res = await supabaseClient
+          .from('batches').select('*, subjects(*, chapters(*, chapter_resources(*)))')
+          .order('sort_order');
+      } else this.videosTable = true;
+      const data = res.data || [];
+      data.forEach(b => (b.subjects || []).sort((a, c) => (a.sort_order || 0) - (c.sort_order || 0)).forEach(sub =>
+        (sub.chapters || []).sort((a, c) => (a.sort_order || 0) - (c.sort_order || 0)).forEach(ch => {
+          if (ch.chapter_videos) ch.chapter_videos.sort((a, c) => (a.sort_order || 0) - (c.sort_order || 0));
+          if (ch.chapter_resources) ch.chapter_resources.sort((a, c) => (a.sort_order || 0) - (c.sort_order || 0));
+        })));
+      return data;
     }
-    return loadLocalDB().batches;
+    this.videosTable = true;
+    const db = loadLocalDB();
+    // upgrade older local DBs (before multi-video support)
+    db.batches.forEach(b => (b.subjects || []).forEach(sub => (sub.chapters || []).forEach(ch => {
+      if (!ch.chapter_videos) ch.chapter_videos = ch.youtube_id ? [{ id: `${ch.id}-v0`, title: ch.title, youtube_id: ch.youtube_id, duration: ch.duration || '', enabled: ch.video_enabled !== false, sort_order: 0 }] : [];
+    })));
+    saveLocalDB(db);
+    return db.batches;
+  },
+
+  /* ---------------- CHAPTER VIDEOS (many per chapter, each with a name) ---------------- */
+  async saveVideo(chapterId, video, batchId, subjectId) {
+    const yt = (typeof CWA !== 'undefined') ? CWA.ytId(video.youtube_id) : video.youtube_id;
+    if (!yt) return { ok: false, error: 'Sahi YouTube link ya 11-character video ID daalein.' };
+    const enabled = video.enabled === undefined ? true : (video.enabled === true || video.enabled === 'true' || video.enabled === 'on');
+    const row = { title: (video.title || '').trim() || 'Video', youtube_id: yt, duration: (video.duration || '').trim(), enabled, sort_order: Number(video.sort_order) || 0 };
+    if (this.isSupabase()) {
+      let res;
+      if (video.id) res = await supabaseClient.from('chapter_videos').update(row).eq('id', video.id);
+      else {
+        const { data: ex } = await supabaseClient.from('chapter_videos').select('sort_order').eq('chapter_id', chapterId).order('sort_order', { ascending: false }).limit(1);
+        row.sort_order = ex && ex.length ? (ex[0].sort_order || 0) + 1 : 0;
+        row.chapter_id = chapterId;
+        res = await supabaseClient.from('chapter_videos').insert(row);
+      }
+      if (res.error) return { ok: false, error: res.error.message + (/chapter_videos/.test(res.error.message) ? ' (Supabase me migration_phase9.sql run karein)' : '') };
+      return { ok: true };
+    }
+    const db = loadLocalDB();
+    const batch = db.batches.find(b => b.id === batchId);
+    const subject = batch && batch.subjects.find(s => s.id === subjectId);
+    const chapter = subject && subject.chapters.find(c => c.id === chapterId);
+    if (!chapter) return { ok: false, error: 'Chapter nahi mila.' };
+    chapter.chapter_videos = chapter.chapter_videos || [];
+    if (video.id) {
+      const i = chapter.chapter_videos.findIndex(v => v.id === video.id);
+      if (i >= 0) chapter.chapter_videos[i] = Object.assign({}, chapter.chapter_videos[i], row);
+    } else {
+      row.id = `${chapterId}-v${Date.now()}`;
+      row.sort_order = chapter.chapter_videos.length;
+      chapter.chapter_videos.push(row);
+    }
+    saveLocalDB(db);
+    return { ok: true };
+  },
+  async toggleVideo(videoId, enabled, batchId, subjectId, chapterId) {
+    if (this.isSupabase()) { await supabaseClient.from('chapter_videos').update({ enabled }).eq('id', videoId); return; }
+    const db = loadLocalDB();
+    const b = db.batches.find(x => x.id === batchId), sb = b && b.subjects.find(x => x.id === subjectId), ch = sb && sb.chapters.find(x => x.id === chapterId);
+    const v = ch && (ch.chapter_videos || []).find(x => x.id === videoId);
+    if (v) v.enabled = enabled;
+    saveLocalDB(db);
+  },
+  async deleteVideo(videoId, batchId, subjectId, chapterId) {
+    if (this.isSupabase()) { await supabaseClient.from('chapter_videos').delete().eq('id', videoId); return; }
+    const db = loadLocalDB();
+    const b = db.batches.find(x => x.id === batchId), sb = b && b.subjects.find(x => x.id === subjectId), ch = sb && sb.chapters.find(x => x.id === chapterId);
+    if (ch) ch.chapter_videos = (ch.chapter_videos || []).filter(v => v.id !== videoId);
+    saveLocalDB(db);
+  },
+  // Move an item up/down inside its list (videos / resources / chapters / subjects)
+  async moveItem(kind, list, id, dir, ctx) {
+    const idx = list.findIndex(x => String(x.id) === String(id));
+    const j = idx + dir;
+    if (idx < 0 || j < 0 || j >= list.length) return;
+    const a = list[idx], b = list[j];
+    const orderA = (a.sort_order ?? idx), orderB = (b.sort_order ?? j);
+    const table = { video: 'chapter_videos', resource: 'chapter_resources', chapter: 'chapters', subject: 'subjects' }[kind];
+    const aNew = orderA === orderB ? j : orderB, bNew = orderA === orderB ? idx : orderA;
+    if (this.isSupabase()) {
+      await supabaseClient.from(table).update({ sort_order: aNew }).eq('id', a.id);
+      await supabaseClient.from(table).update({ sort_order: bNew }).eq('id', b.id);
+      return;
+    }
+    const db = loadLocalDB();
+    const bt = db.batches.find(x => x.id === ctx.batchId);
+    const sb = bt && bt.subjects.find(x => x.id === ctx.subjectId);
+    const ch = sb && sb.chapters.find(x => x.id === ctx.chapterId);
+    const arr = kind === 'video' ? ch.chapter_videos : kind === 'resource' ? ch.chapter_resources : kind === 'chapter' ? sb.chapters : bt.subjects;
+    const i1 = arr.findIndex(x => String(x.id) === String(a.id)), i2 = arr.findIndex(x => String(x.id) === String(b.id));
+    [arr[i1], arr[i2]] = [arr[i2], arr[i1]];
+    arr.forEach((x, n) => { x.sort_order = n; });
+    saveLocalDB(db);
   },
   async saveBatch(batch) {
     const isFree = batch.is_free === true || batch.is_free === 'true' || batch.is_free === 'on' || batch.is_free === '1';
@@ -662,6 +759,10 @@ const AdminDB = {
                 .insert({ subject_id: subjectId, title: ch.title, youtube_id: ch.youtube, duration: ch.duration, description: ch.description || '', sort_order: ci })
                 .select('id').single();
               const chapterId = chRow.id;
+              if (ch.youtube) {
+                const vr = await supabaseClient.from('chapter_videos').insert({ chapter_id: chapterId, title: ch.title, youtube_id: ch.youtube, duration: ch.duration || '', enabled: true, sort_order: 0 });
+                if (vr.error) { /* migration_phase9 not run yet - legacy single youtube_id still works */ }
+              }
               for (let ri = 0; ri < (ch.resources || []).length; ri++) {
                 const r = ch.resources[ri];
                 await supabaseClient.from('chapter_resources').insert({

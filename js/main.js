@@ -96,35 +96,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const { data: noticeRows } = await supabaseClient.from('notices').select('*').eq('active', true).order('sort_order');
       if (noticeRows && noticeRows.length) notices = noticeRows.map(n => n.text);
 
-      const { data: batchRows } = await supabaseClient
-        .from('batches')
-        .select('*, subjects(*, chapters(*, chapter_resources(*)))')
-        .eq('active', true)
-        .order('sort_order');
-      if (batchRows && batchRows.length) {
-        batchesData = {
-          batches: batchRows.map(b => ({
-            id: b.id, class: b.class_name, title: b.title, subtitle: b.subtitle,
-            color: b.color, icon: b.icon, image_url: b.image_url,
-            offer_text: b.offer_text, price: b.price, payment_link: b.payment_link,
-            is_free: b.is_free !== false,
-            subjects: (b.subjects || []).sort((a, c) => (a.sort_order||0) - (c.sort_order||0)).map(s => ({
-              name: s.name, icon: s.icon,
-              chapters: (s.chapters || []).sort((a, c) => (a.sort_order||0) - (c.sort_order||0)).map(ch => ({
-                title: ch.title, youtube: ch.youtube_id, duration: ch.duration, description: ch.description,
-                video_enabled: ch.video_enabled !== false,
-                resources: (ch.chapter_resources || []).sort((a, c) => (a.sort_order||0) - (c.sort_order||0)).map(r => ({
-                  type: r.resource_type, url: r.url, description: r.description, enabled: r.enabled !== false
-                }))
-              }))
-            }))
-          }))
-        };
-      }
     } catch (err) {
       console.warn('Supabase fetch failed, using local fallback data.', err);
     }
   }
+
+  // Batches (class -> subject -> chapter -> videos/notes) come from the shared loader (js/content.js)
+  try { batchesData = await CWA.loadBatches(); } catch (e) { console.warn('Batches load failed', e); }
 
   /* ---------- APPLY SITE SETTINGS TO DOM ---------- */
   function applySiteSettings() {
@@ -157,8 +135,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const footerTiming = document.getElementById('footerTiming');
     if (footerTiming && s.class_timing) footerTiming.innerHTML = `<i class="fa-solid fa-clock"></i> ${s.class_timing}`;
 
+    // Map: admin's custom embed URL wins; the old generic "Bihar,India" default is replaced by a zoomed map of the address.
     const mapFrame = document.getElementById('contactMapFrame');
-    if (mapFrame && s.map_embed_url) mapFrame.src = s.map_embed_url;
+    if (mapFrame) {
+      const custom = s.map_embed_url && !/q=Bihar,?\s*India/i.test(s.map_embed_url);
+      if (custom) mapFrame.src = s.map_embed_url;
+      else if (s.address) mapFrame.src = 'https://www.google.com/maps?q=' + encodeURIComponent(s.address) + '&z=16&output=embed';
+    }
+
+    // Contact section extras (quick cards + directions)
+    setHref('cxCall', s.helpline_number ? 'tel:' + s.helpline_number.replace(/\s+/g,'') : null);
+    setText('cxMailText', s.email);
+    setHref('cxMail', s.email ? 'mailto:' + s.email : null);
+    const mapOpen = document.getElementById('mapOpen');
+    if (mapOpen && s.address) mapOpen.setAttribute('href', 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.address));
 
     const waFloat = document.getElementById('floatingWhatsapp');
     if (waFloat && s.whatsapp_link) waFloat.setAttribute('href', s.whatsapp_link);
@@ -540,208 +530,62 @@ document.addEventListener('DOMContentLoaded', async () => {
   const footerClasses = document.getElementById('footerClasses');
   if (footerClasses && batchesData.batches && batchesData.batches.length) {
     footerClasses.innerHTML = batchesData.batches
-      .map(b => `<li><a href="#batches">${b.title}</a></li>`).join('');
+      .map(b => `<li><a href="class.html#${encodeURIComponent(b.id)}">${CWA.esc(b.title)}</a></li>`).join('');
   }
 
   /* =========================================================
-     BATCHES RENDER (from batchesData)
+     CLASS CARDS (Class 9 / 10 / 11 / 12)
+     Card par click -> alag page: class.html#<batchId>
+     (Class -> 3 subjects -> chapters -> videos + PPT/PDF).
+     Paid class = lock badge, Free class = open badge.
   ========================================================= */
-  const subjectIconMap = {
-    Physics: { icon: 'fa-atom' },
-    Chemistry: { icon: 'fa-flask' },
-    Maths: { icon: 'fa-square-root-variable' }
-  };
-  const subjectColorMap = {
-    Physics: 'linear-gradient(135deg,#6C63FF,#4C3CE3)',
-    Chemistry: 'linear-gradient(135deg,#00E0B8,#00A98F)',
-    Maths: 'linear-gradient(135deg,#FFB84D,#FF8A00)'
-  };
-
-  const batchTabsContainer = document.getElementById('batchTabs');
-  const batchPanelsContainer = document.getElementById('batchPanels');
-
-  function renderBatches() {
-    if (!batchesData || !batchesData.batches) return;
-
-    // Tabs — poster-style cards: image/icon + FREE/PAID badge + Class name, all in one glance.
-    batchTabsContainer.innerHTML = batchesData.batches.map((b, i) => {
-      const tabIsFree = b.is_free !== false;
-      return `<button class="batch-tab ${i === 0 ? 'active' : ''}" data-batch="${b.id}">
-        <span class="batch-tab-badge ${tabIsFree ? 'free' : 'paid'}"><i class="fa-solid fa-${tabIsFree ? 'unlock' : 'lock'}"></i> ${tabIsFree ? 'FREE' : 'PAID'}</span>
-        <span class="batch-tab-media">
-          ${b.image_url
-            ? `<img class="batch-tab-img" src="${b.image_url}" alt="${b.title || ''}" loading="lazy">`
-            : `<span class="batch-tab-icon" style="background:${b.color || '#6C63FF'}"><i class="fa-solid fa-${b.icon || 'layer-group'}"></i></span>`}
-        </span>
-        <span class="batch-tab-label">Class ${b.class}</span>
-      </button>`;
-    }).join('');
-
-    // Panels — every chapter (video + PDFs) lives INSIDE its batch/subject block.
-    let html = '';
-    batchesData.batches.forEach((batch, idx) => {
-      const isFree = batch.is_free !== false;
-      html += `<div class="batch-panel ${idx === 0 ? 'active' : ''}" id="panel-${batch.id}">`;
-      html += `
-        <div class="batch-panel-head">
-          ${batch.image_url ? `<div class="batch-panel-img"><img src="${batch.image_url}" alt="${batch.title}" loading="lazy"></div>` : `
-          <div class="batch-panel-icon" style="background:${batch.color || '#6C63FF'}"><i class="fa-solid fa-${batch.icon || 'layer-group'}"></i></div>`}
-          <div class="batch-panel-info">
-            <h3>${batch.title} ${isFree ? '<span class="batch-badge free"><i class="fa-solid fa-unlock"></i> FREE</span>' : '<span class="batch-badge paid"><i class="fa-solid fa-lock"></i> PAID</span>'}</h3>
-            <p>${batch.subtitle || ''}</p>
-            ${batch.offer_text ? `<p style="color:#FF6B6B;font-weight:700;margin-top:4px;">${batch.offer_text}</p>` : ''}
+  const classGrid = document.getElementById('classGrid');
+  function renderClassCards() {
+    if (!classGrid) return;
+    const list = (batchesData && batchesData.batches) || [];
+    if (!list.length) {
+      classGrid.innerHTML = '<p class="cls-empty">Batches jaldi aa rahe hain...</p>';
+      return;
+    }
+    classGrid.innerHTML = list.map((b, i) => {
+      const free = b.is_free !== false;
+      const st = CWA.stats(b);
+      const col = CWA.safeColor(b.color, '#4C3CE3');
+      const img = CWA.safeUrl(b.image_url);
+      return `
+      <a class="cls-card ${free ? 'is-free' : 'is-paid'}" href="class.html#${encodeURIComponent(b.id)}" style="--c:${col}" data-aos="fade-up" data-aos-delay="${(i % 4) * 70}">
+        <div class="cls-top">
+          ${img ? `<img class="cls-cover" src="${CWA.esc(img)}" alt="" loading="lazy">` : ''}
+          <span class="cls-ghost">${CWA.esc(b.class)}</span>
+          <span class="cls-pill ${free ? 'free' : 'paid'}"><i class="fa-solid fa-${free ? 'lock-open' : 'lock'}"></i> ${free ? 'FREE' : 'PAID'}</span>
+          <div class="cls-top-in">
+            <small>CLASS</small>
+            <b>${CWA.esc(b.class)}</b>
           </div>
-          ${batch.price ? `<div class="batch-panel-price">
-              <div class="price-val">₹${batch.price}</div>
-              ${batch.payment_link ? `<a href="${batch.payment_link}" target="_blank" rel="noopener" class="btn btn-primary" style="margin-top:6px;padding:8px 18px;font-size:.82rem;"><i class="fa-solid fa-credit-card"></i> Enroll / Pay Now</a>` : ''}
-            </div>` : ''}
-        </div>`;
-
-      if (!isFree) {
-        html += `<div class="batch-locked-banner">
-          <i class="fa-solid fa-lock"></i>
-          <span>Ye batch <b>PAID</b> hai — chapters/videos/PDFs unlock karne ke liye enroll karein.</span>
-          ${batch.payment_link ? `<a href="${batch.payment_link}" target="_blank" rel="noopener" class="btn btn-primary btn-sm-inline"><i class="fa-solid fa-credit-card"></i> Enroll Karein</a>` : ''}
-        </div>`;
-      }
-
-      (batch.subjects || []).forEach((subject, sIdx) => {
-        const iconInfo = subjectIconMap[subject.name] || { icon: 'fa-book' };
-        const grad = subjectColorMap[subject.name] || 'linear-gradient(135deg,#999,#666)';
-        const chapCount = (subject.chapters || []).length;
-        // Disha-Classes style: subject is an ACCORDION — tap the header to open
-        // chapters INSIDE it; first subject of each batch starts open.
-        html += `<div class="subject-block ${!isFree ? 'locked-subject' : ''} ${sIdx === 0 ? 'open' : ''}">
-          <button type="button" class="subject-block-title" aria-expanded="${sIdx === 0 ? 'true' : 'false'}">
-            <i class="fa-solid ${iconInfo.icon}" style="background:${grad}"></i>
-            <span>${subject.name}</span>
-            <span class="chap-count">${chapCount} Chapter${chapCount !== 1 ? 's' : ''}</span>
-            <i class="fa-solid fa-chevron-down sb-chevron"></i>
-          </button>
-          <div class="subject-body"><div class="subject-body-inner">
-          <div class="chapter-grid">`;
-
-        (subject.chapters || []).forEach((ch, i) => {
-          // Only show resources the admin has left ENABLED — disabled ones are fully hidden (not just locked).
-          const resources = (ch.resources && ch.resources.length ? ch.resources : []).filter(r => r.enabled !== false);
-          const videoOn = ch.youtube && ch.video_enabled !== false;
-          html += `
-            <div class="chapter-card ${!isFree ? 'locked' : ''}">
-              ${!isFree ? `<div class="chapter-lock-overlay"><i class="fa-solid fa-lock"></i></div>` : ''}
-              <div class="chapter-num">Chapter ${i + 1}</div>
-              <div class="chapter-title">${ch.title}</div>
-              ${ch.description ? `<div class="chapter-desc" style="font-size:.8rem;color:var(--gray);margin-bottom:10px;">${ch.description}</div>` : ''}
-              <div class="chapter-meta"><i class="fa-regular fa-clock"></i> ${ch.duration || ''}</div>
-              <div class="chapter-actions" style="flex-wrap:wrap;">
-                ${videoOn ? (isFree
-                  ? `<button class="chapter-btn video" data-yt="${ch.youtube}" data-title="${subject.name} - ${ch.title}">
-                      <i class="fa-solid fa-circle-play"></i> Video
-                    </button>`
-                  : `<button class="chapter-btn video locked-btn" disabled title="Enroll karke unlock karein">
-                      <i class="fa-solid fa-lock"></i> Video
-                    </button>`) : ''}
-                ${resources.map(r => isFree
-                  ? `<a class="chapter-btn pdf" href="${r.url}" target="_blank" rel="noopener" title="${r.description || ''}">
-                      <i class="fa-solid fa-file-pdf"></i> ${r.type || 'PDF'}
-                    </a>`
-                  : `<button class="chapter-btn pdf locked-btn" disabled title="Enroll karke unlock karein">
-                      <i class="fa-solid fa-lock"></i> ${r.type || 'PDF'}
-                    </button>`).join('')}
-                ${(!videoOn && !resources.length) ? `<div class="chapter-meta" style="font-style:italic;">Content aane wala hai...</div>` : ''}
-              </div>
-            </div>`;
-        });
-
-        html += `</div></div></div></div>`;
-      });
-
-      html += `</div>`;
-    });
-    batchPanelsContainer.innerHTML = html;
-
-    // Video buttons: play INLINE inside the batch (Disha-Classes style),
-    // right below the chapter card — no full-screen modal takeover.
-    document.querySelectorAll('.chapter-btn.video:not(.locked-btn)').forEach(btn => {
-      btn.addEventListener('click', () => toggleInlineVideo(btn));
-    });
-
-    // Subject accordion: tap header to expand/collapse chapters inside it.
-    document.querySelectorAll('.subject-block-title').forEach(head => {
-      head.addEventListener('click', () => {
-        const block = head.closest('.subject-block');
-        const willOpen = !block.classList.contains('open');
-        // Close any inline video inside a subject that is being collapsed
-        if (!willOpen) closeInlineVideo(block);
-        block.classList.toggle('open', willOpen);
-        head.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
-      });
-    });
-
-    // Re-attach tab click listeners
-    document.querySelectorAll('.batch-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        closeInlineVideo(); // stop any playing video when switching batch
-        document.querySelectorAll('.batch-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        document.querySelectorAll('.batch-panel').forEach(p => p.classList.remove('active'));
-        const target = document.getElementById('panel-' + tab.dataset.batch);
-        if (target) target.classList.add('active');
-      });
-    });
-
+          ${free ? '' : '<span class="cls-lockbadge"><i class="fa-solid fa-lock"></i></span>'}
+        </div>
+        <div class="cls-body">
+          <h3>${CWA.esc(b.title)}</h3>
+          <p class="cls-sub">${CWA.esc(b.subtitle || '')}</p>
+          ${b.offer_text ? `<p class="cls-offer"><i class="fa-solid fa-tags"></i> ${CWA.esc(b.offer_text)}</p>` : ''}
+          <div class="cls-subjects">
+            ${(b.subjects || []).map(s => `<span style="--sc:${CWA.subjectMeta(s.name).color}"><i class="fa-solid fa-${CWA.subjectIcon(s)}"></i>${CWA.esc(s.name)}</span>`).join('')}
+          </div>
+          <div class="cls-stats">
+            <span><b>${st.chapters}</b> Chapters</span>
+            <span><b>${st.videos}</b> Videos</span>
+            <span><b>${st.notes}</b> Notes</span>
+          </div>
+          <div class="cls-foot">
+            ${!free && b.price ? `<span class="cls-price">₹${CWA.esc(b.price)}</span>` : `<span class="cls-price ${free ? 'free' : ''}">${free ? 'Bilkul Free' : 'Paid Batch'}</span>`}
+            <span class="cls-go">${free ? 'Batch Kholein' : 'Batch Dekhein'} <i class="fa-solid fa-arrow-right"></i></span>
+          </div>
+        </div>
+      </a>`;
+    }).join('');
     if (window.AOS) AOS.refreshHard();
   }
-
-  /* =========================================================
-     INLINE VIDEO PLAYER (Disha-Classes style)
-     Video batch ke ANDAR hi khulta hai — chapter card expand hoke
-     uske neeche player aata hai. Ek waqt me sirf ek video play hota hai.
-  ========================================================= */
-  function closeInlineVideo(scope) {
-    const root = scope || document;
-    root.querySelectorAll('.chapter-inline-video').forEach(el => el.remove());
-    root.querySelectorAll('.chapter-card.video-open').forEach(c => c.classList.remove('video-open'));
-    root.querySelectorAll('.chapter-btn.video.watching').forEach(b => {
-      b.classList.remove('watching');
-      b.innerHTML = '<i class="fa-solid fa-circle-play"></i> Video';
-    });
-  }
-
-  function toggleInlineVideo(btn) {
-    const card = btn.closest('.chapter-card');
-    const alreadyOpen = card.classList.contains('video-open');
-    closeInlineVideo(); // sirf ek video ek waqt par
-    if (alreadyOpen) return; // dobara click = band karo
-
-    card.classList.add('video-open');
-    btn.classList.add('watching');
-    btn.innerHTML = '<i class="fa-solid fa-circle-stop"></i> Band Karein';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'chapter-inline-video';
-    wrap.innerHTML = `
-      <div class="iv-head">
-        <span><i class="fa-solid fa-circle-play"></i> ${btn.dataset.title || 'Chapter Video'}</span>
-        <button type="button" class="iv-close" aria-label="Close video"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="iv-frame">
-        <iframe src="https://www.youtube.com/embed/${btn.dataset.yt}?autoplay=1&rel=0&playsinline=1"
-          title="${btn.dataset.title || 'Chapter Video'}"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowfullscreen></iframe>
-      </div>`;
-    card.appendChild(wrap);
-    wrap.querySelector('.iv-close').addEventListener('click', closeInlineVideo.bind(null, undefined));
-
-    // Player ko smoothly viewport me le aao
-    setTimeout(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
-  }
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeInlineVideo();
-  });
-
-  renderBatches();
+  renderClassCards();
 
   /* =========================================================
      WEEKLY TEST RESULT LOOKUP
@@ -877,10 +721,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     resultOutput.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
+  // Class chooser buttons (9 / 10 / 11 / 12) -> hidden #resultClass
+  const classChoice = document.getElementById('classChoice');
+  const classHidden = document.getElementById('resultClass');
+  if (classChoice) {
+    classChoice.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.cc-btn');
+      if (!btn) return;
+      classChoice.querySelectorAll('.cc-btn').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      classHidden.value = btn.dataset.v;
+      classChoice.classList.remove('shake');
+    });
+  }
+
   resultForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const cls = document.getElementById('resultClass').value.trim();
+    const cls = classHidden.value.trim();
     const mobile = document.getElementById('resultMobile').value.trim();
+    if (!cls) {
+      classChoice.classList.remove('shake'); void classChoice.offsetWidth; classChoice.classList.add('shake');
+      return;
+    }
+    if (!/^\d{10}$/.test(mobile)) { document.getElementById('resultMobile').focus(); return; }
     const submitBtn = resultForm.querySelector('.btn-primary');
     const btnOriginalHtml = submitBtn.innerHTML;
 
@@ -937,5 +800,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   mobileInput.addEventListener('input', () => {
     mobileInput.value = mobileInput.value.replace(/\D/g, '').slice(0, 10);
   });
+
+  /* =========================================================
+     CONTACT FORM -> WhatsApp (message prefilled, no backend needed)
+  ========================================================= */
+  const contactForm = document.getElementById('contactForm');
+  if (contactForm) {
+    const cfMobile = document.getElementById('cfMobile');
+    cfMobile.addEventListener('input', () => { cfMobile.value = cfMobile.value.replace(/\D/g, '').slice(0, 10); });
+    contactForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const err = document.getElementById('cfErr');
+      const name = document.getElementById('cfName').value.trim();
+      const mobile = cfMobile.value.trim();
+      const cls = document.getElementById('cfClass').value;
+      const msg = document.getElementById('cfMsg').value.trim();
+      err.textContent = '';
+      if (!name) { err.textContent = 'Kripya apna naam likhein.'; return; }
+      if (!/^\d{10}$/.test(mobile)) { err.textContent = 'Sahi 10 digit mobile number daalein.'; return; }
+      const text = `Namaste, main ${name} hoon.\n` + (cls ? `Class: ${cls}\n` : '') + `Mobile: ${mobile}\n` + (msg ? `Message: ${msg}` : 'Mujhe admission ke bare mein jaankari chahiye.');
+      window.open(CWA.waLink(siteSettings.whatsapp_link, text), '_blank', 'noopener');
+    });
+  }
 
 });
