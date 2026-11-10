@@ -32,7 +32,7 @@
 <!-- AOS Animate on scroll -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.1/dist/aos.css">
 
-<link rel="stylesheet" href="css/style.css?v=tw1">
+<link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
 
@@ -156,14 +156,10 @@
       <p class="section-desc" id="batchesSubheading">Har class ke liye Physics, Chemistry aur Maths ke batch — sath mein video lecture aur PDF notes.</p>
     </div>
 
-    <div class="batch-tabs" id="batchTabs" data-aos="zoom-in" data-aos-delay="100"><!-- JS injects tab buttons here --></div>
-
-    <div id="batchPanels" data-aos="fade-up" data-aos-delay="150"><!-- JS injects batch panels here --></div>
+    <div class="class-grid" id="classGrid"><!-- JS: Class 9/10/11/12 cards (click -> class.html#id) --></div>
   </div>
 </section>
 
-<!-- Video ab batch ke ANDAR inline player me chalta hai (Disha-Classes style) —
-     full-screen modal hata diya gaya hai. See toggleInlineVideo() in js/main.js. -->
 
 <!-- ===================== TEST RESULT ===================== -->
 <section class="result-section" id="result">
@@ -171,32 +167,40 @@
   <div class="result-particles" aria-hidden="true">
     <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
   </div>
-  <div class="section-container">
-    <div class="section-head light" data-aos="fade-up">
-      <p class="section-tag">📊 Weekly Test</p>
-      <h2 class="section-title">Apna <span class="text-gradient">Result</span> Check Karein</h2>
-      <p class="section-desc">Apni class chunein aur mobile number daal kar Submit karein — turant result dekhein.</p>
+  <div class="section-container result-grid">
+    <div class="result-intro" data-aos="fade-right">
+      <span class="section-tag">📊 Weekly Test</span>
+      <h2 class="result-title">Apna <span>Result</span><br>Check Karein</h2>
+      <p class="result-lead">Class chunein, mobile number daalein aur apne weekly test ke marks, percentage aur grade turant dekhein.</p>
+      <ul class="result-points">
+        <li><i class="fa-solid fa-bolt"></i><div><b>Turant Result</b><small>Submit karte hi sab tests ek jagah</small></div></li>
+        <li><i class="fa-solid fa-chart-line"></i><div><b>Subject-wise Marks</b><small>Physics, Chemistry, Maths alag-alag</small></div></li>
+        <li><i class="fa-solid fa-shield-halved"></i><div><b>Sirf Aapka Result</b><small>Class + registered mobile se hi khulta hai</small></div></li>
+      </ul>
     </div>
 
     <div class="result-box" data-aos="zoom-in">
+      <div class="rb-head">
+        <span class="rb-ic"><i class="fa-solid fa-user-graduate"></i></span>
+        <div><h3>Student Result Portal</h3><p>Apni details bharein</p></div>
+      </div>
       <form id="resultForm" class="result-form">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="resultClass"><i class="fa-solid fa-graduation-cap"></i> Class</label>
-            <select id="resultClass" required>
-              <option value="">-- Select Class --</option>
-              <option value="9">Class 9</option>
-              <option value="10">Class 10</option>
-              <option value="11">Class 11</option>
-              <option value="12">Class 12</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="resultMobile"><i class="fa-solid fa-mobile-screen-button"></i> Mobile Number</label>
-            <input type="tel" id="resultMobile" placeholder="10 digit mobile number" maxlength="10" pattern="[0-9]{10}" required>
-          </div>
+        <div class="rb-label"><i class="fa-solid fa-graduation-cap"></i> Class chunein</div>
+        <div class="class-choice" id="classChoice" role="radiogroup" aria-label="Class">
+          <button type="button" class="cc-btn" data-v="9"><small>Class</small><b>9</b></button>
+          <button type="button" class="cc-btn" data-v="10"><small>Class</small><b>10</b></button>
+          <button type="button" class="cc-btn" data-v="11"><small>Class</small><b>11</b></button>
+          <button type="button" class="cc-btn" data-v="12"><small>Class</small><b>12</b></button>
         </div>
-        <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-magnifying-glass"></i> Submit &amp; Check Result</button>
+        <input type="hidden" id="resultClass" required>
+
+        <label class="rb-label" for="resultMobile"><i class="fa-solid fa-mobile-screen-button"></i> Mobile Number</label>
+        <div class="rb-input">
+          <span class="pre">+91</span>
+          <input type="tel" id="resultMobile" placeholder="10 digit mobile number" maxlength="10" pattern="[0-9]{10}" inputmode="numeric" autocomplete="tel-national" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block rb-submit"><i class="fa-solid fa-magnifying-glass"></i> Result Dekhein</button>
+        <p class="form-hint"><i class="fa-solid fa-lock"></i> Aapki details sirf result dikhane ke liye use hoti hain.</p>
       </form>
 
       <div class="result-output" id="resultOutput" style="display:none;">
@@ -209,18 +213,8 @@
         </div>
         <div class="table-scroll">
           <table class="result-table">
-            <!-- <thead> is generated dynamically by js/main.js (buildResultThead)
-                 based on the actual subjects covered by this student's tests,
-                 since a Weekly Test can now cover 1, 2, or any number of
-                 subjects (not just fixed Physics/Chemistry/Maths). -->
             <thead>
-              <tr>
-                <th>Test</th>
-                <th>Date</th>
-                <th>Total</th>
-                <th>%</th>
-                <th>Grade</th>
-              </tr>
+              <tr><th>Test</th><th>Date</th><th>Total</th><th>%</th><th>Grade</th></tr>
             </thead>
             <tbody id="resultTableBody"></tbody>
           </table>
@@ -291,50 +285,57 @@
     <div class="center-head" data-aos="fade-up">
       <p class="soft-tag">Contact Us</p>
       <h2 class="big-title" data-s="contact_heading">Hamse Judein</h2>
+      <p class="big-sub">Admission, batch ya doubt ke bare mein kuch bhi puchna ho - call karein, WhatsApp karein ya seedha centre par aayein.</p>
     </div>
-<div class="contact-grid">
-      <div class="contact-info" data-aos="fade-right">
-        <div class="contact-item">
-          <div class="ci-icon"><i class="fa-solid fa-phone-volume"></i></div>
-          <div>
-            <h4>Admission Helpline (24/7)</h4>
-            <a href="tel:+916207434940" id="contactHelpline">+91 6207434940</a>
+
+    <div class="cx-quick" data-aos="fade-up">
+      <a class="cx-q call" id="cxCall" href="tel:+916207434940"><i class="fa-solid fa-phone-volume"></i><span><small>Admission Helpline (24/7)</small><b id="contactHelpline">+91 6207434940</b></span></a>
+      <a class="cx-q wa" id="contactWhatsapp" href="https://wa.me/916207434940" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i><span><small>WhatsApp Par Chat Karein</small><b>Chat on WhatsApp</b></span></a>
+      <a class="cx-q mail" id="cxMail" href="mailto:info@cwascienceclasses.com"><i class="fa-solid fa-envelope"></i><span><small>Email</small><b id="cxMailText">info@cwascienceclasses.com</b></span></a>
+    </div>
+
+    <div class="cx-grid">
+      <div class="cx-form-card" data-aos="fade-right">
+        <h3><i class="fa-solid fa-paper-plane"></i> Hume Message Bhejein</h3>
+        <p>Form bharein - message seedha hamare WhatsApp par aayega aur hum jaldi call karenge.</p>
+        <form id="contactForm" class="cx-form" novalidate>
+          <div class="cx-row">
+            <div class="cx-f"><label for="cfName">Aapka Naam</label><input id="cfName" required placeholder="Naam likhein" autocomplete="name"></div>
+            <div class="cx-f"><label for="cfMobile">Mobile Number</label><input id="cfMobile" type="tel" inputmode="numeric" maxlength="10" required placeholder="10 digit number" autocomplete="tel-national"></div>
           </div>
-        </div>
-        <div class="contact-item">
-          <div class="ci-icon"><i class="fa-brands fa-whatsapp"></i></div>
-          <div>
-            <h4>WhatsApp</h4>
-            <a href="https://wa.me/916207434940" target="_blank" id="contactWhatsapp">Chat on WhatsApp</a>
+          <div class="cx-f"><label for="cfClass">Class</label>
+            <select id="cfClass"><option value="">Class chunein</option><option>Class 9</option><option>Class 10</option><option>Class 11</option><option>Class 12</option></select>
           </div>
-        </div>
-        <div class="contact-item">
-          <div class="ci-icon"><i class="fa-solid fa-location-dot"></i></div>
-          <div>
-            <h4>Address</h4>
-            <p id="contactAddress">CWA SCIENCE CLASSES, Patel High School Road Maheshkhunt (Godavari Complex), Bihar - India</p>
-          </div>
-        </div>
-        <div class="contact-item">
-          <div class="ci-icon"><i class="fa-solid fa-clock"></i></div>
-          <div>
-            <h4>Class Timing</h4>
-            <p id="contactTiming">Monday - Saturday | 8:00 AM - 8:00 PM</p>
-          </div>
-        </div>
-        <div class="contact-socials" id="contactSocials">
-          <a href="https://youtube.com" target="_blank" class="social-btn yt"><i class="fa-brands fa-youtube"></i></a>
-          <a href="https://facebook.com" target="_blank" class="social-btn fb"><i class="fa-brands fa-facebook-f"></i></a>
-          <a href="https://wa.me/916207434940" target="_blank" class="social-btn wa"><i class="fa-brands fa-whatsapp"></i></a>
-          <a href="https://instagram.com" target="_blank" class="social-btn ig"><i class="fa-brands fa-instagram"></i></a>
-        </div>
+          <div class="cx-f"><label for="cfMsg">Message</label><textarea id="cfMsg" rows="3" placeholder="Aap kya jaanna chahte hain?"></textarea></div>
+          <button class="btn btn-gold cx-submit" type="submit"><i class="fa-brands fa-whatsapp"></i> WhatsApp Par Bhejein</button>
+          <p class="cx-err" id="cfErr"></p>
+        </form>
       </div>
-      <div class="contact-map" data-aos="fade-left">
-        <iframe id="contactMapFrame"
-          src="https://www.google.com/maps?q=Bihar,India&output=embed"
-          width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
-          referrerpolicy="no-referrer-when-downgrade" title="CWA Science Classes Location">
-        </iframe>
+
+      <div class="cx-side" data-aos="fade-left">
+        <div class="cx-info">
+          <div class="contact-item">
+            <div class="ci-icon"><i class="fa-solid fa-location-dot"></i></div>
+            <div><h4>Address</h4><p id="contactAddress">CWA SCIENCE CLASSES, Patel High School Road Maheshkhunt (Godavari Complex), Bihar - India</p></div>
+          </div>
+          <div class="contact-item">
+            <div class="ci-icon"><i class="fa-solid fa-clock"></i></div>
+            <div><h4>Class Timing</h4><p id="contactTiming">Monday - Saturday | 8:00 AM - 8:00 PM</p></div>
+          </div>
+          <div class="contact-socials" id="contactSocials">
+            <a href="https://youtube.com" target="_blank" rel="noopener" class="social-btn yt" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+            <a href="https://facebook.com" target="_blank" rel="noopener" class="social-btn fb" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+            <a href="https://wa.me/916207434940" target="_blank" rel="noopener" class="social-btn wa" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+            <a href="https://instagram.com" target="_blank" rel="noopener" class="social-btn ig" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+          </div>
+        </div>
+        <div class="contact-map">
+          <iframe id="contactMapFrame"
+            src="https://www.google.com/maps?q=Patel+High+School+Road+Maheshkhunt+Bihar&output=embed"
+            width="100%" height="100%" style="border:0;" allowfullscreen="" loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade" title="CWA Science Classes Location"></iframe>
+          <a class="map-open" id="mapOpen" href="https://www.google.com/maps/search/?api=1&query=Patel+High+School+Road+Maheshkhunt+Bihar" target="_blank" rel="noopener"><i class="fa-solid fa-diamond-turn-right"></i> Directions</a>
+        </div>
       </div>
     </div>
   </div>
@@ -375,10 +376,10 @@
       <div class="footer-col" data-aos="fade-up" data-aos-delay="200">
         <h4>Classes</h4>
         <ul id="footerClasses">
-          <li><a href="#batches">Class 9 PCM</a></li>
-          <li><a href="#batches">Class 10 PCM</a></li>
-          <li><a href="#batches">Class 11 PCM</a></li>
-          <li><a href="#batches">Class 12 PCM</a></li>
+          <li><a href="class.html#class9">Class 9 PCM</a></li>
+          <li><a href="class.html#class10">Class 10 PCM</a></li>
+          <li><a href="class.html#class11">Class 11 PCM</a></li>
+          <li><a href="class.html#class12">Class 12 PCM</a></li>
         </ul>
       </div>
 
@@ -411,6 +412,7 @@
 <script src="js/site-data.js"></script>
 <script src="js/batches-data.js"></script>
 <script src="js/results-data.js"></script>
-<script src="js/main.js"></script>
+<script src="js/content.js"></script>
+<script src="js/main.js?v=2"></script>
 </body>
 </html>

@@ -660,6 +660,8 @@ function subjectBlock(b, sub) {
     <div class="a-flex-between">
       <div class="a-flex"><i class="fa-solid ${sub.icon || 'fa-book'}"></i><b>${esc(sub.name)}</b></div>
       <div class="a-list-actions">
+        <button class="a-btn a-btn-sm a-btn-outline" title="Upar" data-move="subject|${b.id}|${sub.id}|-1"><i class="fa-solid fa-arrow-up"></i></button>
+        <button class="a-btn a-btn-sm a-btn-outline" title="Neeche" data-move="subject|${b.id}|${sub.id}|1"><i class="fa-solid fa-arrow-down"></i></button>
         <button class="a-btn a-btn-sm a-btn-outline" data-edit-subject="${b.id}|${sub.id}"><i class="fa-solid fa-pen"></i></button>
         <button class="a-btn a-btn-sm a-btn-danger" data-del-subject="${b.id}|${sub.id}"><i class="fa-solid fa-trash"></i></button>
         <button class="a-btn a-btn-sm a-btn-primary" data-add-chapter="${b.id}|${sub.id}"><i class="fa-solid fa-plus"></i> Chapter</button>
@@ -669,29 +671,51 @@ function subjectBlock(b, sub) {
   </div>`;
 }
 function chapterRow(b, sub, ch) {
-  const videoOn = ch.video_enabled !== false;
+  const key = `${b.id}|${sub.id}|${ch.id}`;
+  const hasVT = AdminDB.videosTable !== false;
+  // Multi-video mode (migration_phase9 done / local mode): list of named videos.
+  // Legacy mode (table missing): the single youtube_id of the chapter.
+  const vids = hasVT ? (ch.chapter_videos || []) : (ch.youtube_id ? [{ id: 'legacy', title: ch.title, youtube_id: ch.youtube_id, duration: ch.duration, enabled: ch.video_enabled !== false }] : []);
+  const res = ch.chapter_resources || [];
   return `<div class="a-chapter-row" id="aChapter-${ch.id}">
     <div class="a-flex-between">
-      <div><b style="font-size:.88rem;">${esc(ch.title)}</b><div style="font-size:.76rem; color:var(--a-gray);">YouTube: ${esc(ch.youtube_id)} • ${esc(ch.duration || '')}</div></div>
+      <div><b style="font-size:.9rem;">${esc(ch.title)}</b>
+        <div style="font-size:.76rem; color:var(--a-gray);">${vids.length} video • ${res.length} notes${ch.duration ? ' • ' + esc(ch.duration) : ''}</div></div>
       <div class="a-list-actions">
-        ${ch.youtube_id ? `<label class="a-switch a-switch-sm" title="Video ON/OFF">
-          <input type="checkbox" data-toggle-video="${b.id}|${sub.id}|${ch.id}" ${videoOn ? 'checked' : ''}>
-          <span class="a-switch-slider"></span>
-        </label>` : ''}
-        <button class="a-btn a-btn-sm a-btn-outline" data-edit-chapter="${b.id}|${sub.id}|${ch.id}"><i class="fa-solid fa-pen"></i></button>
-        <button class="a-btn a-btn-sm a-btn-danger" data-del-chapter="${b.id}|${sub.id}|${ch.id}"><i class="fa-solid fa-trash"></i></button>
-        <button class="a-btn a-btn-sm a-btn-primary" data-add-resource="${b.id}|${sub.id}|${ch.id}"><i class="fa-solid fa-file-arrow-up"></i> PDF</button>
+        <button class="a-btn a-btn-sm a-btn-outline" title="Upar" data-move="chapter|${key}|-1"><i class="fa-solid fa-arrow-up"></i></button>
+        <button class="a-btn a-btn-sm a-btn-outline" title="Neeche" data-move="chapter|${key}|1"><i class="fa-solid fa-arrow-down"></i></button>
+        <button class="a-btn a-btn-sm a-btn-outline" data-edit-chapter="${key}"><i class="fa-solid fa-pen"></i></button>
+        <button class="a-btn a-btn-sm a-btn-danger" data-del-chapter="${key}"><i class="fa-solid fa-trash"></i></button>
       </div>
     </div>
-    <div style="margin-top:8px;">
-      ${(ch.chapter_resources || []).map(r => `<span class="a-resource-chip ${r.enabled === false ? 'disabled' : ''}">
+
+    <div class="a-vid-head"><span><i class="fa-solid fa-circle-play"></i> Videos</span>
+      ${hasVT ? `<button class="a-btn a-btn-sm a-btn-primary" data-add-video="${key}"><i class="fa-solid fa-plus"></i> Video</button>` : ''}</div>
+    ${vids.length ? vids.map((v, vi) => `
+      <div class="a-vid-row ${v.enabled === false ? 'off' : ''}">
+        <img src="https://i.ytimg.com/vi/${esc(CWA.ytId(v.youtube_id))}/default.jpg" alt="" onerror="this.style.visibility='hidden'">
+        <div class="a-vid-t"><b>${esc(v.title)}</b><small>youtu.be/${esc(CWA.ytId(v.youtube_id))}${v.duration ? ' • ' + esc(v.duration) : ''}</small></div>
+        <div class="a-list-actions">
+          <label class="a-switch a-switch-sm" title="Video ON/OFF"><input type="checkbox" data-toggle-video="${key}|${v.id}" ${v.enabled !== false ? 'checked' : ''}><span class="a-switch-slider"></span></label>
+          ${hasVT ? `<button class="a-btn a-btn-sm a-btn-outline" title="Upar" data-move="video|${key}|${v.id}|-1" ${vi === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+          <button class="a-btn a-btn-sm a-btn-outline" title="Neeche" data-move="video|${key}|${v.id}|1" ${vi === vids.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+          <button class="a-btn a-btn-sm a-btn-outline" data-edit-video="${key}|${v.id}"><i class="fa-solid fa-pen"></i></button>
+          <button class="a-btn a-btn-sm a-btn-danger" data-del-video="${key}|${v.id}"><i class="fa-solid fa-trash"></i></button>` : ''}
+        </div>
+      </div>`).join('') : '<div style="font-size:.76rem; color:var(--a-gray); padding:4px 0 8px;">Koi video nahi hai.</div>'}
+    ${hasVT ? '' : `<div class="a-note">Ek chapter me multiple videos ke liye Supabase me <b>supabase/migration_phase9.sql</b> ek baar run karein. Tab tak chapter edit me single YouTube video chalega.</div>`}
+
+    <div class="a-vid-head"><span><i class="fa-solid fa-file-lines"></i> Class PPT / PDF Notes</span>
+      <button class="a-btn a-btn-sm a-btn-primary" data-add-resource="${key}"><i class="fa-solid fa-file-arrow-up"></i> PPT / PDF</button></div>
+    <div>
+      ${res.map(r => `<span class="a-resource-chip ${r.enabled === false ? 'disabled' : ''}">
           <label class="a-switch a-switch-sm" title="Resource ON/OFF">
-            <input type="checkbox" data-toggle-resource="${b.id}|${sub.id}|${ch.id}|${r.id}" ${r.enabled !== false ? 'checked' : ''}>
+            <input type="checkbox" data-toggle-resource="${key}|${r.id}" ${r.enabled !== false ? 'checked' : ''}>
             <span class="a-switch-slider"></span>
           </label>
-          <i class="fa-solid fa-file-pdf"></i> ${esc(r.resource_type)}
-          <button data-del-resource="${b.id}|${sub.id}|${ch.id}|${r.id}"><i class="fa-solid fa-xmark"></i></button>
-        </span>`).join('') || '<span style="font-size:.76rem; color:var(--a-gray);">Koi PDF nahi hai.</span>'}
+          <i class="fa-solid fa-file-pdf"></i> <a href="#" data-edit-resource="${key}|${r.id}" style="color:inherit;text-decoration:none;">${esc(r.resource_type)}</a>
+          <button data-del-resource="${key}|${r.id}"><i class="fa-solid fa-xmark"></i></button>
+        </span>`).join('') || '<span style="font-size:.76rem; color:var(--a-gray);">Koi PPT/PDF nahi hai.</span>'}
     </div>
   </div>`;
 }
@@ -752,11 +776,52 @@ function wireBatchEvents() {
       await AdminDB.deleteResource(batchId, subId, chId, resId); toast('Resource delete ho gaya', 'ok'); renderBatchesPanel();
     });
   }));
-  // Quick ON/OFF toggle for a chapter's video button — students see/hide instantly, nothing deleted.
+  // Quick ON/OFF toggle for ONE video (students see/hide instantly, nothing deleted).
   document.querySelectorAll('[data-toggle-video]').forEach(cb => cb.addEventListener('change', async () => {
-    const [batchId, subId, chId] = cb.getAttribute('data-toggle-video').split('|');
-    await AdminDB.toggleChapterVideo(chId, cb.checked, batchId, subId);
+    const [batchId, subId, chId, vidId] = cb.getAttribute('data-toggle-video').split('|');
+    if (vidId === 'legacy') await AdminDB.toggleChapterVideo(chId, cb.checked, batchId, subId);
+    else await AdminDB.toggleVideo(vidId, cb.checked, batchId, subId, chId);
     toast(cb.checked ? 'Video ON kar diya' : 'Video OFF kar diya', 'ok');
+    renderBatchesPanel();
+  }));
+  // Videos: add / edit / delete
+  document.querySelectorAll('[data-add-video]').forEach(b => b.addEventListener('click', () => {
+    const [batchId, subId, chId] = b.getAttribute('data-add-video').split('|');
+    openVideoForm(batchId, subId, chId, null);
+  }));
+  document.querySelectorAll('[data-edit-video]').forEach(b => b.addEventListener('click', () => {
+    const [batchId, subId, chId, vidId] = b.getAttribute('data-edit-video').split('|');
+    const ch = findChapter(batchId, subId, chId);
+    openVideoForm(batchId, subId, chId, (ch.chapter_videos || []).find(v => String(v.id) === vidId));
+  }));
+  document.querySelectorAll('[data-del-video]').forEach(b => b.addEventListener('click', () => {
+    const [batchId, subId, chId, vidId] = b.getAttribute('data-del-video').split('|');
+    confirmDelete('Ye video delete ho jayega.', async () => {
+      await AdminDB.deleteVideo(vidId, batchId, subId, chId); toast('Video delete ho gaya', 'ok'); renderBatchesPanel();
+    });
+  }));
+  // Resource edit (click on its name)
+  document.querySelectorAll('[data-edit-resource]').forEach(a => a.addEventListener('click', (e) => {
+    e.preventDefault();
+    const [batchId, subId, chId, resId] = a.getAttribute('data-edit-resource').split('|');
+    const ch = findChapter(batchId, subId, chId);
+    openResourceForm(batchId, subId, chId, (ch.chapter_resources || []).find(r => String(r.id) === resId));
+  }));
+  // Reorder (up / down) for subjects, chapters, videos
+  document.querySelectorAll('[data-move]').forEach(btn => btn.addEventListener('click', async () => {
+    const p = btn.getAttribute('data-move').split('|');
+    const kind = p[0], dir = parseInt(p[p.length - 1], 10);
+    const batch = CURRENT_BATCHES.find(x => x.id === p[1]);
+    if (kind === 'subject') {
+      await AdminDB.moveItem('subject', batch.subjects, p[2], dir, { batchId: p[1] });
+    } else {
+      const sub = batch.subjects.find(x => String(x.id) === p[2]);
+      if (kind === 'chapter') await AdminDB.moveItem('chapter', sub.chapters, p[3], dir, { batchId: p[1], subjectId: p[2] });
+      else {
+        const ch = sub.chapters.find(x => String(x.id) === p[3]);
+        await AdminDB.moveItem('video', ch.chapter_videos || [], p[4], dir, { batchId: p[1], subjectId: p[2], chapterId: p[3] });
+      }
+    }
     renderBatchesPanel();
   }));
   // Quick ON/OFF toggle for a single PDF/PPT resource chip — hides just that one item, nothing deleted.
@@ -835,17 +900,23 @@ function openSubjectForm(batchId, subject) {
     closeModal(); toast('Subject save ho gaya', 'ok'); renderBatchesPanel();
   });
 }
+function findChapter(batchId, subId, chId) {
+  const batch = CURRENT_BATCHES.find(x => x.id === batchId);
+  const sub = batch && batch.subjects.find(s => String(s.id) === String(subId));
+  return sub && sub.chapters.find(c => String(c.id) === String(chId));
+}
 function openChapterForm(batchId, subjectId, chapter) {
   const c = chapter || {};
+  const legacy = AdminDB.videosTable === false;
   openModal(`
     <h3>${chapter ? 'Chapter Edit Karein' : 'Naya Chapter'} <i class="fa-solid fa-xmark close" onclick="closeModal()"></i></h3>
     <form id="aChapterForm">
       <div class="a-field"><label>Chapter Title</label><input name="title" value="${esc(c.title)}" required></div>
-      <div class="a-grid-2">
-        <div class="a-field"><label>YouTube Video ID</label><input name="youtube_id" value="${esc(c.youtube_id)}"></div>
+      ${legacy ? `<div class="a-grid-2">
+        <div class="a-field"><label>YouTube Video ID / Link</label><input name="youtube_id" value="${esc(c.youtube_id)}"></div>
         <div class="a-field"><label>Duration (e.g. 1:20:00)</label><input name="duration" value="${esc(c.duration)}"></div>
-      </div>
-      <div class="a-field"><label>Description</label><textarea name="description" rows="2">${esc(c.description)}</textarea></div>
+      </div>` : `<p style="font-size:.78rem;color:var(--a-gray);margin-bottom:10px;">Videos chapter banane ke baad <b>+ Video</b> button se add karein (ek chapter me jitne chahein, har video ka alag naam).</p>`}
+      <div class="a-field"><label>Description (optional)</label><textarea name="description" rows="2">${esc(c.description)}</textarea></div>
       <div class="a-modal-actions">
         <button type="button" class="a-btn a-btn-outline" onclick="closeModal()">Cancel</button>
         <button class="a-btn a-btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save</button>
@@ -855,15 +926,48 @@ function openChapterForm(batchId, subjectId, chapter) {
   document.getElementById('aChapterForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = formToObj(e.target);
+    if (data.youtube_id) data.youtube_id = CWA.ytId(data.youtube_id) || data.youtube_id;
     if (chapter && chapter.id) data.id = chapter.id;
     await AdminDB.saveChapter(subjectId, data, batchId);
     closeModal(); toast('Chapter save ho gaya', 'ok'); renderBatchesPanel();
   });
 }
+function openVideoForm(batchId, subjectId, chapterId, video) {
+  const v = video || {};
+  openModal(`
+    <h3>${video ? 'Video Edit Karein' : 'Naya Video'} <i class="fa-solid fa-xmark close" onclick="closeModal()"></i></h3>
+    <form id="aVideoForm">
+      <div class="a-field"><label>Video ka Naam * (students ko yehi dikhega)</label>
+        <input name="title" value="${esc(v.title)}" required placeholder="jaise: Lecture 1 - Introduction"></div>
+      <div class="a-field"><label>YouTube Link ya Video ID *</label>
+        <input name="youtube_id" id="aVidYt" value="${esc(v.youtube_id)}" required placeholder="https://youtu.be/xxxxxxxxxxx  ya  xxxxxxxxxxx"></div>
+      <div id="aVidPrev" class="a-vid-prev"></div>
+      <div class="a-field"><label>Duration (optional, jaise 1:20:00)</label><input name="duration" value="${esc(v.duration)}"></div>
+      <div class="a-modal-actions">
+        <button type="button" class="a-btn a-btn-outline" onclick="closeModal()">Cancel</button>
+        <button class="a-btn a-btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+      </div>
+    </form>
+  `);
+  const inp = document.getElementById('aVidYt'), prev = document.getElementById('aVidPrev');
+  const upd = () => {
+    const id = CWA.ytId(inp.value);
+    prev.innerHTML = id ? `<img src="https://i.ytimg.com/vi/${id}/mqdefault.jpg" alt=""><span><i class="fa-solid fa-circle-check"></i> Video ID: ${id}</span>` : (inp.value.trim() ? '<span class="bad"><i class="fa-solid fa-circle-exclamation"></i> Link/ID sahi nahi lag raha</span>' : '');
+  };
+  inp.addEventListener('input', upd); upd();
+  document.getElementById('aVideoForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = formToObj(e.target);
+    if (video && video.id) { data.id = video.id; data.sort_order = video.sort_order; data.enabled = video.enabled !== false; }
+    const res = await AdminDB.saveVideo(chapterId, data, batchId, subjectId);
+    if (!res.ok) return toast(res.error || 'Save fail hua', 'err');
+    closeModal(); toast('Video save ho gaya', 'ok'); renderBatchesPanel();
+  });
+}
 function openResourceForm(batchId, subjectId, chapterId, resource) {
   const r = resource || {};
   openModal(`
-    <h3>${resource ? 'PDF Edit Karein' : 'Naya PDF Resource'} <i class="fa-solid fa-xmark close" onclick="closeModal()"></i></h3>
+    <h3>${resource ? 'PDF Edit Karein' : 'Naya PPT / PDF Notes'} <i class="fa-solid fa-xmark close" onclick="closeModal()"></i></h3>
     <form id="aResourceForm">
       <div class="a-field"><label>Resource Type (jaise "Text Notes (PDF)")</label><input name="resource_type" value="${esc(r.resource_type)}" required></div>
       ${fileField("url", r.url, "PDF (upload ya URL)", "pdf", "application/pdf", true)}
